@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  confirmed
+  waitlist
+  cancelled
+}
+
+enum BookingCreatedBy {
+  employee
+  admin
+}
+
+enum NotificationChannel {
+  LINE
+}
+
+enum NotificationStatus {
+  pending
+  skipped
+  sent
+  failed
+}
+
+model ShuttleSchedule {
+  id               String             @id @default(cuid())
+  serviceDate      DateTime           @map("service_date") @db.Date
+  routeName        String             @map("route_name")
+  departureTime    String             @map("departure_time")
+  pickupPoint      String             @map("pickup_point")
+  capacity         Int
+  registrationOpen Boolean            @default(true) @map("registration_open")
+  waitlistEnabled  Boolean            @default(true) @map("waitlist_enabled")
+  note             String?
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  bookings         Booking[]
+
+  @@index([serviceDate])
+  @@map("shuttle_schedules")
+}
+
+model Booking {
+  id               String             @id @default(cuid())
+  scheduleId       String             @map("schedule_id")
+  schedule         ShuttleSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  employeeName     String             @map("employee_name")
+  department       String
+  employeeNo       String?            @map("employee_no")
+  phone            String?
+  status           BookingStatus
+  bookingCode      String             @unique @map("booking_code")
+  note             String?
+  adminOverride    Boolean            @default(false) @map("admin_override")
+  createdBy        BookingCreatedBy   @default(employee) @map("created_by")
+  identityKey      String             @map("identity_key")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  cancelledAt      DateTime?          @map("cancelled_at")
+  notificationLogs NotificationLog[]
+
+  @@index([scheduleId, status])
+  @@index([identityKey])
+  @@map("bookings")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  source     String   @default("system")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model NotificationLog {
+  id           String             @id @default(cuid())
+  bookingId    String?            @map("booking_id")
+  booking      Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  channel      NotificationChannel
+  target       String?
+  message      String
+  status       NotificationStatus @default(pending)
+  errorMessage String?            @map("error_message")
+  sentAt       DateTime?          @map("sent_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  @@index([bookingId])
+  @@map("notification_logs")
+}
+
+model ScheduleTemplate {
+  id              String   @id @default(cuid())
+  routeName       String   @map("route_name")
+  departureTime   String   @map("departure_time")
+  pickupPoint     String   @map("pickup_point")
+  defaultCapacity Int      @map("default_capacity")
+  waitlistEnabled Boolean  @default(true) @map("waitlist_enabled")
+  note            String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@map("schedule_templates")
+}
