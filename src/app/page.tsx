@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, CheckCircle2, Clock, MapPin, Users } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { tomorrowDateInput } from "@/lib/dates";
 
 type Schedule = {
   id: string;
@@ -22,12 +23,6 @@ type Schedule = {
   isOverbooked: boolean;
 };
 
-function tomorrow() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 function scheduleState(schedule: Schedule) {
   if (schedule.isOverbooked) return "overbooked";
   if (!schedule.registrationOpen) return "closed";
@@ -35,9 +30,15 @@ function scheduleState(schedule: Schedule) {
   return "open";
 }
 
+function bookingButtonText(schedule: Schedule) {
+  if (!schedule.registrationOpen || (!schedule.waitlistEnabled && schedule.isFull)) return "已關閉";
+  if (schedule.isFull && schedule.waitlistEnabled) return "登記候補";
+  return "登記";
+}
+
 export default function Home() {
   const router = useRouter();
-  const [date, setDate] = useState(tomorrow());
+  const [date, setDate] = useState(tomorrowDateInput());
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selected, setSelected] = useState<Schedule | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,8 +139,8 @@ export default function Home() {
           <div className="grid gap-3">
             {schedules.map((schedule) => (
               <article key={schedule.id} className="panel p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                <div className="grid gap-4 sm:grid-cols-[1fr_140px] sm:items-start">
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-bold">{schedule.routeName}</h2>
                       <StatusBadge value={scheduleState(schedule)} />
@@ -152,7 +153,7 @@ export default function Home() {
                     </div>
                     {schedule.note && <p className="mt-3 text-sm text-stone-600">{schedule.note}</p>}
                   </div>
-                  <div className="min-w-28 text-right">
+                  <div className="rounded-[6px] bg-muted p-3 text-left sm:text-right">
                     <p className="text-sm text-stone-600">剩餘名額</p>
                     <p className="text-2xl font-bold">{schedule.remainingCount}</p>
                     <button
@@ -161,7 +162,7 @@ export default function Home() {
                       onClick={() => setSelected(schedule)}
                     >
                       <CheckCircle2 size={16} />
-                      登記
+                      {bookingButtonText(schedule)}
                     </button>
                   </div>
                 </div>
@@ -172,7 +173,11 @@ export default function Home() {
 
         <aside className="panel h-fit p-4 lg:sticky lg:top-6">
           <h2 className="text-lg font-bold">登記表單</h2>
-          <p className="mt-1 text-sm text-stone-600">{selected ? `${selected.departureTime} ${selected.routeName}` : "請先選擇左側車班"}</p>
+          <p className="mt-1 text-sm text-stone-600">
+            {selected
+              ? `你選擇：${selected.serviceDate.slice(0, 10)} ${selected.departureTime} ${selected.routeName} / ${selected.pickupPoint}`
+              : "請先選擇左側車班"}
+          </p>
           <form className="mt-4 space-y-3" onSubmit={submit}>
             <label className="block text-sm font-semibold">員工姓名<input name="employeeName" className="field mt-1" required disabled={!selected || submitting} /></label>
             <label className="block text-sm font-semibold">部門<input name="department" className="field mt-1" required disabled={!selected || submitting} /></label>

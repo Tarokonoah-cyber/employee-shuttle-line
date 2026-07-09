@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server";
 import { decorateSchedules } from "@/lib/booking-service";
-import { parseServiceDate, todayDateInput, tomorrowDateInput } from "@/lib/dates";
+import { parseServiceDate, startOfTaipeiDateInput, todayDateInput, tomorrowDateInput } from "@/lib/dates";
 import { requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminApi();
   if (auth) return auth;
 
+  const url = new URL(request.url);
+  const selectedDate = url.searchParams.get("date") ?? tomorrowDateInput();
   const prisma = getPrisma();
-  const tomorrow = parseServiceDate(tomorrowDateInput());
-  const today = parseServiceDate(todayDateInput());
-  const tomorrowSchedules = await prisma.shuttleSchedule.findMany({
-    where: { serviceDate: tomorrow },
+  const serviceDate = parseServiceDate(selectedDate);
+  const todayStart = startOfTaipeiDateInput(todayDateInput());
+  const selectedSchedules = await prisma.shuttleSchedule.findMany({
+    where: { serviceDate },
     orderBy: [{ departureTime: "asc" }],
   });
-  const schedules = await decorateSchedules(tomorrowSchedules);
+  const schedules = await decorateSchedules(selectedSchedules);
 
   const [latestBookings, todayNew] = await Promise.all([
     prisma.booking.findMany({
@@ -24,7 +26,7 @@ export async function GET() {
       include: { schedule: true },
     }),
     prisma.booking.count({
-      where: { createdAt: { gte: today } },
+      where: { createdAt: { gte: todayStart } },
     }),
   ]);
 
@@ -43,5 +45,5 @@ export async function GET() {
     (schedule) => schedule.isFull || schedule.waitlistCount > 0 || !schedule.registrationOpen || schedule.isOverbooked,
   );
 
-  return NextResponse.json({ summary: { ...summary, todayNew }, schedules, latestBookings, attention });
+  return NextResponse.json({ date: selectedDate, summary: { ...summary, todayNew }, schedules, latestBookings, attention });
 }

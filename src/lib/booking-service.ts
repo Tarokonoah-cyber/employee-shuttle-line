@@ -22,6 +22,10 @@ export class BusinessError extends Error {
   }
 }
 
+function isPrismaKnownError(error: unknown, code: string) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === code;
+}
+
 function toJson(value: unknown) {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -133,22 +137,30 @@ async function createBookingInTransaction(
     throw new BusinessError("此車班已額滿且未開放候補");
   }
 
-  const booking = await tx.booking.create({
-    data: {
-      scheduleId: input.scheduleId,
-      employeeName: input.employeeName.trim(),
-      department: input.department.trim(),
-      employeeNo: input.employeeNo?.trim() || null,
-      phone: input.phone?.trim() || null,
-      note: input.note?.trim() || null,
-      createdBy: input.createdBy,
-      identityKey,
-      bookingCode: generateBookingCode(),
-      status,
-      adminOverride,
-    },
-    include: { schedule: true },
-  });
+  const booking = await tx.booking
+    .create({
+      data: {
+        scheduleId: input.scheduleId,
+        employeeName: input.employeeName.trim(),
+        department: input.department.trim(),
+        employeeNo: input.employeeNo?.trim() || null,
+        phone: input.phone?.trim() || null,
+        note: input.note?.trim() || null,
+        createdBy: input.createdBy,
+        identityKey,
+        bookingCode: generateBookingCode(),
+        status,
+        adminOverride,
+      },
+      include: { schedule: true },
+    })
+    .catch((error) => {
+      if (isPrismaKnownError(error, "P2002")) {
+        throw new BusinessError("你已經登記過此車班");
+      }
+
+      throw error;
+    });
 
   await logAudit(tx, {
     action: adminOverride ? "booking.force_create" : "booking.create",
@@ -176,10 +188,15 @@ export async function createEmployeeBooking(input: {
   note?: string | null;
 }) {
   const prisma = getPrisma();
-  return prisma.$transaction(
-    (tx) => createBookingInTransaction(tx, { ...input, createdBy: "employee" }),
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  try {
+    return await prisma.$transaction(
+      (tx) => createBookingInTransaction(tx, { ...input, createdBy: "employee" }),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  } catch (error) {
+    if (isPrismaKnownError(error, "P2002")) throw new BusinessError("你已經登記過此車班");
+    throw error;
+  }
 }
 
 export async function createAdminBooking(input: {
@@ -192,37 +209,80 @@ export async function createAdminBooking(input: {
   adminOverride?: boolean;
 }) {
   const prisma = getPrisma();
-  return prisma.$transaction(
-    (tx) => createBookingInTransaction(tx, { ...input, createdBy: "admin" }),
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  try {
+    return await prisma.$transaction(
+      (tx) => createBookingInTransaction(tx, { ...input, createdBy: "admin" }),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  } catch (error) {
+    if (isPrismaKnownError(error, "P2002")) throw new BusinessError("你已經登記過此車班");
+    throw error;
+  }
 }
 
 export async function cancelBooking(id: string) {
   const prisma = getPrisma();
 
-  return prisma.$transaction(async (tx) => {
-    const booking = await tx.booking.findUnique({ where: { id } });
-    if (!booking) throw new BusinessError("找不到預約", 404);
-    if (booking.status === "cancelled") throw new BusinessError("此預約已取消");
+  return prisma.$transaction(
+    async (tx) => {
+      const booking = await tx.booking.findUnique({ where: { id }, include: { schedule: true } });
+      if (!booking) throw new BusinessError("找不到預約", 404);
+      if (booking.status === "cancelled") throw new BusinessError("此預約已取消");
 
-    const updated = await tx.booking.update({
-      where: { id },
-      data: { status: "cancelled", cancelledAt: new Date() },
-      include: { schedule: true },
-    });
+      await tx.$queryRaw`SELECT id FROM shuttle_schedules WHERE id = ${booking.scheduleId} FOR UPDATE`;
 
-    await logAudit(tx, {
-      action: "booking.cancel",
-      targetType: "booking",
-      targetId: id,
-      oldValue: booking,
-      newValue: updated,
-      source: "admin",
-    });
+      const cancelled = await tx.booking.update({
+        where: { id },
+        data: { status: "cancelled", cancelledAt: new Date() },
+        include: { schedule: true },
+      });
 
-    return updated;
-  });
+      await logAudit(tx, {
+        action: "booking.cancel",
+        targetType: "booking",
+        targetId: id,
+        oldValue: booking,
+        newValue: cancelled,
+        source: "admin",
+      });
+
+      let promoted: (Booking & { schedule: ShuttleSchedule }) | null = null;
+
+      if (booking.status === "confirmed") {
+        const confirmedCount = await tx.booking.count({
+          where: { scheduleId: booking.scheduleId, status: "confirmed" },
+        });
+
+        if (confirmedCount < booking.schedule.capacity) {
+          const nextWaitlist = await tx.booking.findFirst({
+            where: { scheduleId: booking.scheduleId, status: "waitlist" },
+            orderBy: { createdAt: "asc" },
+            include: { schedule: true },
+          });
+
+          if (nextWaitlist) {
+            promoted = await tx.booking.update({
+              where: { id: nextWaitlist.id },
+              data: { status: "confirmed" },
+              include: { schedule: true },
+            });
+
+            await logAudit(tx, {
+              action: "booking.auto_promote_waitlist",
+              targetType: "booking",
+              targetId: nextWaitlist.id,
+              oldValue: nextWaitlist,
+              newValue: promoted,
+              source: "admin",
+            });
+          }
+        }
+      }
+
+      return { cancelled, promoted };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }
 
 export async function confirmWaitlistBooking(id: string, adminOverride = false) {

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Clipboard, Download, Plus, RefreshCw } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { tomorrowDateInput } from "@/lib/dates";
 
 type Schedule = { id: string; serviceDate: string; routeName: string; departureTime: string; pickupPoint: string; capacity: number };
 type Booking = {
@@ -22,16 +23,10 @@ type Booking = {
   schedule: Schedule;
 };
 
-function tomorrow() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 const emptyAdd = { scheduleId: "", employeeName: "", department: "", employeeNo: "", phone: "", note: "", adminOverride: false };
 
 export default function AdminBookingsPage() {
-  const [date, setDate] = useState(tomorrow());
+  const [date, setDate] = useState(tomorrowDateInput());
   const [status, setStatus] = useState("");
   const [scheduleId, setScheduleId] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -108,7 +103,7 @@ export default function AdminBookingsPage() {
       body: body ? JSON.stringify(body) : "{}",
     });
     const data = await response.json();
-    setMessage(response.ok ? "操作已完成" : data.error ?? "操作失敗");
+    setMessage(response.ok ? data.message ?? "操作已完成" : data.error ?? "操作失敗");
     if (response.ok) await loadBookings();
   }
 
@@ -162,7 +157,7 @@ export default function AdminBookingsPage() {
           <label className="text-sm font-semibold">搜尋<input className="field mt-1" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="姓名、部門、編號、手機" /></label>
           <button className="btn btn-primary" disabled={loading}><RefreshCw size={16} />查詢</button>
           <button className="btn btn-secondary" type="button" onClick={exportCsv}><Download size={16} />匯出 CSV</button>
-          <button className="btn btn-secondary" type="button" onClick={copyLineText}><Clipboard size={16} />複製公告</button>
+          <button className="btn btn-secondary" type="button" onClick={copyLineText}><Clipboard size={16} />LINE 複製名單</button>
         </form>
 
         {message && <div className="panel p-3 text-sm">{message}</div>}

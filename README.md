@@ -1,113 +1,112 @@
 # 員工車上車登記系統
 
-正式可營運的 Next.js App Router 專案，提供員工前台登記、GRO 後台管理、PostgreSQL/Prisma 資料模型、名額控管、候補管理、CSV 匯出、LINE 群組公告文字產生與操作紀錄。
+## 架構
 
-## 技術
+Next.js 16 + Prisma + Neon PostgreSQL + Vercel。
 
-- Next.js 16 App Router
-- TypeScript
-- PostgreSQL
-- Prisma 6
-- lucide-react
-- Tailwind CSS 4
+本專案保留 Prisma 架構，不使用 Supabase，也不改成 Neon serverless driver。
 
-## 環境變數
+## Vercel 環境變數
 
-複製 `.env.example` 為 `.env`，並填入：
+請在 Vercel Project Settings 設定：
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/employee_shuttle?schema=public"
-ADMIN_PASSWORD="change-this-admin-password"
-NEXT_PUBLIC_APP_NAME="員工車上車登記系統"
+DATABASE_URL
+DIRECT_URL
+ADMIN_PASSWORD
+ADMIN_SESSION_SECRET
+NEXT_PUBLIC_APP_NAME
 ```
 
-若本機沒有設定 `ADMIN_PASSWORD`，開發登入密碼會 fallback 為 `admin`。正式環境請務必設定強密碼。
+- `DATABASE_URL`：Neon pooled connection，給網站查詢使用，hostname 通常包含 `-pooler`。
+- `DIRECT_URL`：Neon direct connection，給 Prisma migration 使用，hostname 通常不包含 `-pooler`。
+- `ADMIN_PASSWORD`：GRO 後台登入密碼。
+- `ADMIN_SESSION_SECRET`：後台 cookie 簽章密鑰，請使用長隨機字串。
+- `NEXT_PUBLIC_APP_NAME`：網站顯示名稱。
 
-## 安裝
+範例請看 `.env.example`。不要把真實 Neon 密碼提交到 GitHub。
+
+## Neon 設定
+
+在 Neon 專案中複製兩種連線字串：
+
+1. Pooled connection 放到 `DATABASE_URL`
+2. Direct connection 放到 `DIRECT_URL`
+
+Prisma schema 使用：
+
+```prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+```
+
+## 第一次部署前
 
 ```bash
 npm install
-npm run prisma:generate
+npx prisma generate
+npx prisma migrate deploy
 ```
 
-## 建立資料表
-
-開發環境：
-
-```bash
-npm run prisma:dev
-```
-
-正式/部署環境：
-
-```bash
-npm run prisma:migrate
-```
-
-本專案的 migration 會建立 partial unique index：
-
-```sql
-CREATE UNIQUE INDEX "bookings_schedule_identity_active_unique"
-ON "bookings"("schedule_id", "identity_key")
-WHERE "status" <> 'cancelled';
-```
-
-用來防止同一車班非取消狀態重複登記。
-
-## 匯入 Seed Data
+需要測試資料時：
 
 ```bash
 npm run db:seed
 ```
 
-Seed 會建立：
-
-- 預設車班模板：07:30、08:30、17:30、18:30 員工車
-- 明日車班
-- confirmed / waitlist / cancelled 預約樣本
-- seed audit log
-
-## 啟動本機開發
+## 本機開發
 
 ```bash
+npm install
 npm run dev
 ```
 
-前台：`http://localhost:3000/`
+若 `3000` 已被其他系統使用，可執行：
 
-後台：`http://localhost:3000/admin`
-
-## Build
-
-```bash
-npm run build
+```bat
+start-dev-3010.cmd
 ```
 
-## 部署到 Vercel
+然後開啟 `http://127.0.0.1:3010/`。
 
-1. 在 Vercel 建立 PostgreSQL 資料庫或連接既有 PostgreSQL。
-2. 在 Vercel Project Settings 設定 `DATABASE_URL`、`ADMIN_PASSWORD`、`NEXT_PUBLIC_APP_NAME`。
-3. 部署後執行 migration：
+## 後台入口
 
-```bash
-npm run prisma:migrate
+```text
+/admin
 ```
 
-4. 需要初始資料時執行：
+開發環境若未設定 `ADMIN_PASSWORD`，可用 `admin` 登入。正式環境必須設定 `ADMIN_PASSWORD` 和 `ADMIN_SESSION_SECRET`，否則會拒絕登入或建立 session。
 
-```bash
-npm run db:seed
-```
+## 功能
 
-## 功能摘要
+- 員工前台登記車班
+- 台灣時區的今天 / 明天日期計算
+- 防止重複報名
+- 額滿自動進候補
+- 取消正取後自動遞補最早候補
+- 後台 Dashboard 可選日期
+- 車班與模板管理
+- 用模板建立指定日期車班，並略過重複車班
+- 預約名單篩選、取消、轉正取、強制轉正取、改車班
+- CSV 匯出，含 BOM，Excel 可正常顯示中文
+- 可貼到 LINE 群組的名單文字
+- audit log 操作紀錄
+- 預留 LINE notification logs 與 service 架構，尚未串 LINE Messaging API
 
-- `/`：員工登記前台，預設明日車班，可切換日期。
-- `/booking/success`：登記結果頁。
-- `/admin`：後台登入頁。
-- `/admin/dashboard`：明日營運摘要、注意車班、最新預約。
-- `/admin/schedules`：車班新增、編輯、關閉、刪除與快速建立明日車班。
-- `/admin/templates`：車班模板管理。
-- `/admin/bookings`：預約名單篩選、手動新增、取消、候補轉正取、強制轉正取、改車班、CSV 匯出、複製 LINE 公告。
-- `/admin/audit-logs`：操作紀錄查詢。
+## 注意事項
 
-LINE Messaging API 尚未串接；目前只建立 `notification_logs` 與 `src/lib/line-notification.ts` 作為未來擴充點。
+以下不可提交到 GitHub：
+
+- `.env`
+- `.env.*`
+- `.next`
+- `node_modules`
+- `.vercel`
+- `*.log`
+- 真實 Neon 連線字串
+- 真實密碼
+
+`.env.example` 必須保留，供部署設定參考。

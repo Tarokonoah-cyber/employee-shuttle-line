@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { CalendarPlus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { tomorrowDateInput } from "@/lib/dates";
 
 type Schedule = {
   id: string;
@@ -22,15 +23,9 @@ type Schedule = {
   isOverbooked: boolean;
 };
 
-function tomorrow() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 const emptyForm = {
   id: "",
-  serviceDate: tomorrow(),
+  serviceDate: tomorrowDateInput(),
   routeName: "",
   departureTime: "",
   pickupPoint: "",
@@ -41,7 +36,7 @@ const emptyForm = {
 };
 
 export default function AdminSchedulesPage() {
-  const [date, setDate] = useState(tomorrow());
+  const [date, setDate] = useState(tomorrowDateInput());
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
@@ -102,11 +97,11 @@ export default function AdminSchedulesPage() {
     const response = await fetch("/api/admin/schedules/create-from-template", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceDate: tomorrow() }),
+      body: JSON.stringify({ serviceDate: tomorrowDateInput() }),
     });
     const data = await response.json();
-    setMessage(response.ok ? `已建立 ${data.schedules.length} 班明日車班` : data.error ?? "快速建立失敗");
-    setDate(tomorrow());
+    setMessage(response.ok ? `已建立 ${data.createdCount} 班，略過 ${data.skippedCount} 班重複車班` : data.error ?? "快速建立失敗");
+    setDate(tomorrowDateInput());
     await load();
   }
 

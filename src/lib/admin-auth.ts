@@ -5,11 +5,19 @@ const COOKIE_NAME = "shuttle_admin_session";
 const MAX_AGE_SECONDS = 60 * 60 * 8;
 
 function secret() {
-  return process.env.ADMIN_PASSWORD || "development-admin-password";
+  const value = process.env.ADMIN_SESSION_SECRET;
+  if (value) return value;
+  if (process.env.NODE_ENV !== "production") return "development-admin-session-secret";
+  return null;
 }
 
 function sign(value: string) {
-  return createHmac("sha256", secret()).update(value).digest("hex");
+  const signingSecret = secret();
+  if (!signingSecret) {
+    throw new Error("ADMIN_SESSION_SECRET is required in production.");
+  }
+
+  return createHmac("sha256", signingSecret).update(value).digest("hex");
 }
 
 function safeEqual(a: string, b: string) {
@@ -21,13 +29,17 @@ function safeEqual(a: string, b: string) {
 export function verifyAdminPassword(password: string) {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    return password === "admin";
+    return process.env.NODE_ENV !== "production" && password === "admin";
   }
 
   return safeEqual(password, expected);
 }
 
 export function createAdminSessionValue() {
+  if (process.env.NODE_ENV === "production" && !process.env.ADMIN_SESSION_SECRET) {
+    throw new Error("ADMIN_SESSION_SECRET is required in production.");
+  }
+
   const issuedAt = Date.now().toString();
   const nonce = randomBytes(16).toString("hex");
   const payload = `${issuedAt}.${nonce}`;
@@ -36,6 +48,7 @@ export function createAdminSessionValue() {
 
 export function verifyAdminSessionValue(value?: string) {
   if (!value) return false;
+  if (process.env.NODE_ENV === "production" && !process.env.ADMIN_SESSION_SECRET) return false;
 
   const parts = value.split(".");
   if (parts.length !== 3) return false;
@@ -48,7 +61,11 @@ export function verifyAdminSessionValue(value?: string) {
     return false;
   }
 
-  return safeEqual(signature, sign(payload));
+  try {
+    return safeEqual(signature, sign(payload));
+  } catch {
+    return false;
+  }
 }
 
 export async function requireAdmin() {

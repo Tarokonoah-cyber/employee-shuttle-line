@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, ClipboardList, UsersRound } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { tomorrowDateInput } from "@/lib/dates";
 
 type DashboardSchedule = {
   id: string;
@@ -21,6 +22,7 @@ type DashboardSchedule = {
 };
 
 type DashboardData = {
+  date: string;
   summary: { confirmed: number; waitlist: number; cancelled: number; remaining: number; todayNew: number };
   schedules: DashboardSchedule[];
   latestBookings: Array<{
@@ -36,18 +38,20 @@ type DashboardData = {
 };
 
 export default function AdminDashboardPage() {
+  const [date, setDate] = useState(tomorrowDateInput());
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/dashboard")
+    setError("");
+    fetch(`/api/admin/dashboard?date=${date}`)
       .then(async (response) => {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error ?? "讀取 Dashboard 失敗");
         setData(payload);
       })
       .catch((err) => setError(err.message));
-  }, []);
+  }, [date]);
 
   return (
     <AdminShell title="Dashboard">
@@ -55,11 +59,21 @@ export default function AdminDashboardPage() {
       {!data && !error && <div className="panel p-4 text-sm text-stone-600">讀取營運資料中...</div>}
       {data && (
         <div className="space-y-6">
+          <div className="panel flex flex-wrap items-end justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm text-stone-600">目前查看日期</p>
+              <h2 className="text-lg font-bold">{data.date} 車班狀態</h2>
+            </div>
+            <label className="text-sm font-semibold">
+              選擇日期
+              <input className="field mt-1" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            </label>
+          </div>
           <div className="grid gap-3 md:grid-cols-5">
             {[
-              ["明日正取", data.summary.confirmed],
-              ["明日候補", data.summary.waitlist],
-              ["明日取消", data.summary.cancelled],
+              ["正取", data.summary.confirmed],
+              ["候補", data.summary.waitlist],
+              ["取消", data.summary.cancelled],
               ["剩餘名額", data.summary.remaining],
               ["今日新增", data.summary.todayNew],
             ].map(([label, value]) => (
@@ -74,7 +88,7 @@ export default function AdminDashboardPage() {
             <div className="panel overflow-hidden">
               <div className="flex items-center gap-2 border-b border-border p-4">
                 <UsersRound size={18} />
-                <h2 className="font-bold">明日車班狀態</h2>
+                <h2 className="font-bold">{data.date} 車班狀態</h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="table">
@@ -92,7 +106,7 @@ export default function AdminDashboardPage() {
                         </td>
                       </tr>
                     ))}
-                    {data.schedules.length === 0 && <tr><td colSpan={6}>明日尚無車班。</td></tr>}
+                    {data.schedules.length === 0 && <tr><td colSpan={6}>此日期尚無車班。</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -100,7 +114,7 @@ export default function AdminDashboardPage() {
 
             <aside className="space-y-4">
               <div className="panel p-4">
-                <div className="mb-3 flex items-center gap-2"><AlertTriangle size={18} /><h2 className="font-bold">GRO 注意</h2></div>
+                <div className="mb-3 flex items-center gap-2"><AlertTriangle size={18} /><h2 className="font-bold">需注意車班</h2></div>
                 <div className="space-y-2">
                   {data.attention.map((schedule) => (
                     <div key={schedule.id} className="rounded-[6px] border border-border p-3 text-sm">

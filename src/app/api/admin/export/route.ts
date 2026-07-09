@@ -38,7 +38,23 @@ export async function GET(request: Request) {
     logAudit(tx, { action: "booking.export_csv", targetType: "booking", newValue: { date, scheduleId, statuses, count: bookings.length }, source: "admin" }),
   );
 
-  const header = ["日期", "車班名稱", "發車時間", "上車點", "狀態", "員工姓名", "部門", "員工編號", "手機", "booking_code", "備註", "建立時間", "取消時間"];
+  const header = [
+    "日期",
+    "車班名稱",
+    "發車時間",
+    "上車點",
+    "狀態",
+    "員工姓名",
+    "部門",
+    "員工編號",
+    "手機",
+    "booking_code",
+    "備註",
+    "是否 adminOverride",
+    "建立來源",
+    "建立時間",
+    "取消時間",
+  ];
   const rows = bookings.map((booking) => [
     displayDate(booking.schedule.serviceDate),
     booking.schedule.routeName,
@@ -51,6 +67,8 @@ export async function GET(request: Request) {
     booking.phone,
     booking.bookingCode,
     booking.note,
+    booking.adminOverride ? "是" : "否",
+    booking.createdBy,
     booking.createdAt.toISOString(),
     booking.cancelledAt?.toISOString(),
   ]);

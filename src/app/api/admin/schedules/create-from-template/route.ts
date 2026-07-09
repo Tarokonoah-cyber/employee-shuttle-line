@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/booking-service";
-import { parseServiceDate, tomorrowDateInput } from "@/lib/dates";
+import { displayDate, parseServiceDate, tomorrowDateInput } from "@/lib/dates";
 import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 
@@ -14,12 +14,13 @@ export async function POST(request: Request) {
     const templateIds: string[] | undefined = Array.isArray(body.templateIds) ? body.templateIds : undefined;
     const prisma = getPrisma();
 
-    const created = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const templates = await tx.scheduleTemplate.findMany({
         where: { active: true, ...(templateIds ? { id: { in: templateIds } } : {}) },
         orderBy: { departureTime: "asc" },
       });
       const schedules = [];
+      let skippedCount = 0;
 
       for (const template of templates) {
         const exists = await tx.shuttleSchedule.findFirst({
@@ -29,7 +30,10 @@ export async function POST(request: Request) {
             departureTime: template.departureTime,
           },
         });
-        if (exists) continue;
+        if (exists) {
+          skippedCount += 1;
+          continue;
+        }
         schedules.push(
           await tx.shuttleSchedule.create({
             data: {
@@ -46,11 +50,16 @@ export async function POST(request: Request) {
         );
       }
 
-      await logAudit(tx, { action: "schedule.create_from_template", targetType: "schedule", newValue: schedules, source: "admin" });
-      return schedules;
+      await logAudit(tx, {
+        action: "schedule.create_from_template",
+        targetType: "schedule",
+        newValue: { serviceDate: displayDate(serviceDate), createdCount: schedules.length, skippedCount, schedules },
+        source: "admin",
+      });
+      return { schedules, createdCount: schedules.length, skippedCount };
     });
 
-    return NextResponse.json({ schedules: created }, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof Error) return jsonError(error.message);
     return jsonError("快速建立車班失敗");

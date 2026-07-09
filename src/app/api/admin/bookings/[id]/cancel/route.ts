@@ -8,8 +8,13 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
 
   try {
     const { id } = await context.params;
-    const booking = await cancelBooking(id);
-    return NextResponse.json({ booking });
+    const result = await cancelBooking(id);
+    return NextResponse.json({
+      ...result,
+      message: result.promoted
+        ? `已取消，並自動遞補候補：${result.promoted.employeeName}`
+        : "已取消，沒有候補需要遞補",
+    });
   } catch (error) {
     if (isBusinessError(error)) return jsonError(error.message, error.status);
     if (error instanceof Error) return jsonError(error.message);

@@ -1,12 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import { addDaysToDateInput, displayDate, parseServiceDate, todayDateInput } from "../src/lib/dates";
 import { buildIdentityKey, generateBookingCode } from "../src/lib/identity";
 
 const prisma = new PrismaClient();
 
 function dateInput(offset: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return new Date(date.toISOString().slice(0, 10) + "T00:00:00.000Z");
+  return parseServiceDate(addDaysToDateInput(todayDateInput(), offset));
 }
 
 async function main() {
@@ -98,7 +97,7 @@ async function main() {
       action: "seed.run",
       targetType: "system",
       source: "seed",
-      newValue: { serviceDate: tomorrow.toISOString().slice(0, 10) },
+      newValue: { serviceDate: displayDate(tomorrow) },
     },
   });
 }

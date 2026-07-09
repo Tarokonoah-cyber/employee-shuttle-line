@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { CopyPlus, Save } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { tomorrowDateInput } from "@/lib/dates";
 
 type Template = {
   id: string;
@@ -17,15 +18,10 @@ type Template = {
 
 const empty = { id: "", routeName: "", departureTime: "", pickupPoint: "", defaultCapacity: 20, waitlistEnabled: true, note: "", active: true };
 
-function tomorrow() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 export default function AdminTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [form, setForm] = useState(empty);
+  const [targetDate, setTargetDate] = useState(tomorrowDateInput());
   const [message, setMessage] = useState("");
 
   async function load() {
@@ -52,14 +48,14 @@ export default function AdminTemplatesPage() {
     }
   }
 
-  async function createTomorrow() {
+  async function createFromTemplates() {
     const response = await fetch("/api/admin/schedules/create-from-template", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceDate: tomorrow() }),
+      body: JSON.stringify({ serviceDate: targetDate }),
     });
     const data = await response.json();
-    setMessage(response.ok ? `已用啟用模板建立 ${data.schedules.length} 班明日車班` : data.error ?? "建立失敗");
+    setMessage(response.ok ? `已建立 ${data.createdCount} 班，略過 ${data.skippedCount} 班重複車班` : data.error ?? "建立失敗");
   }
 
   return (
@@ -81,8 +77,12 @@ export default function AdminTemplatesPage() {
           </div>
         </form>
         <section className="space-y-4">
-          <div className="panel p-4">
-            <button className="btn btn-primary" onClick={createTomorrow}><CopyPlus size={16} />用啟用模板建立明日車班</button>
+          <div className="panel flex flex-wrap items-end gap-3 p-4">
+            <label className="text-sm font-semibold">
+              建立日期
+              <input className="field mt-1" type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} />
+            </label>
+            <button className="btn btn-primary" onClick={createFromTemplates}><CopyPlus size={16} />用啟用模板建立指定日期車班</button>
           </div>
           <div className="panel overflow-hidden">
             <div className="overflow-x-auto">
