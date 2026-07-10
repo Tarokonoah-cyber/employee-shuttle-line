@@ -1,23 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f3ef;
-  --foreground: #26231f;
-  --surface: #fbfaf7;
-  --muted: #ece8df;
-  --border: #d8d1c4;
-  --primary: #24515a;
-  --primary-foreground: #f7f4ed;
+  --background: #f3f0e9;
+  --foreground: #24211d;
+  --surface: #fbfaf6;
+  --surface-strong: #f7f4ed;
+  --muted: #e9e3d8;
+  --border: #d5cbbd;
+  --border-strong: #b9ac99;
+  --primary: #123f45;
+  --primary-foreground: #f8f5ee;
   --danger: #9a3412;
   --success: #166534;
   --warning: #92400e;
   --closed: #57534e;
+  --ink-soft: #625b52;
+  --shadow-soft: 0 14px 38px rgba(43, 35, 25, 0.08);
+  --shadow-tight: 0 8px 18px rgba(43, 35, 25, 0.06);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-primary: var(--primary);
@@ -30,6 +36,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+::selection {
+  background: rgba(18, 63, 69, 0.18);
 }
 
 button,
@@ -54,7 +64,23 @@ textarea:focus-visible {
   background: var(--surface);
   color: var(--foreground);
   border-radius: 6px;
-  padding: 0.62rem 0.72rem;
+  padding: 0.68rem 0.78rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.field::placeholder {
+  color: #8a8176;
+}
+
+.field:disabled {
+  background: #eee8dc;
+  color: #83786b;
+  cursor: not-allowed;
+}
+
+.field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(18, 63, 69, 0.12);
 }
 
 .btn {
@@ -67,7 +93,7 @@ textarea:focus-visible {
   min-height: 2.35rem;
   padding: 0.52rem 0.82rem;
   font-weight: 600;
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
 }
 
 .btn:disabled {
@@ -83,6 +109,8 @@ textarea:focus-visible {
 
 .btn-primary:hover:not(:disabled) {
   background: #1c444b;
+  box-shadow: var(--shadow-tight);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -93,22 +121,63 @@ textarea:focus-visible {
   background: var(--muted);
 }
 
+.btn-danger {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ffedd5;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+
+.executive-card {
+  background: linear-gradient(180deg, var(--surface), #f8f4ec);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+}
+
+.quiet-label {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.page-enter {
+  animation: page-enter 260ms ease-out both;
+}
+
+.stagger-item {
+  animation: page-enter 260ms ease-out both;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #eee8dc 0%, #f8f4ec 50%, #eee8dc 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1100ms ease-in-out infinite;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.9rem;
 }
 
 .table th,
 .table td {
   border-bottom: 1px solid var(--border);
-  padding: 0.7rem;
+  padding: 0.82rem;
   text-align: left;
   vertical-align: top;
 }
@@ -117,8 +186,42 @@ textarea:focus-visible {
   background: #f1eee7;
   color: #4a443d;
   font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .table tr:hover td {
   background: #f8f5ef;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

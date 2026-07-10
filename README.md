@@ -57,6 +57,14 @@ npx prisma migrate deploy
 npm run db:seed
 ```
 
+主管展示或本機驗收可使用：
+
+```bash
+npm run seed:demo
+```
+
+`seed:demo` 會建立明日四種展示車班：正常登記、接近額滿、額滿候補、已關閉登記，並加入正取 / 候補 / 取消的 demo 預約。重複執行時只會重建 `DEMO-` 員工編號的示範預約，不會清除人工輸入資料。
+
 ## 本機開發
 
 ```bash
@@ -71,6 +79,14 @@ start-dev-3010.cmd
 ```
 
 然後開啟 `http://127.0.0.1:3010/`。
+
+## 主管展示流程
+
+1. 執行 `npm run seed:demo` 建立明日展示資料。
+2. 執行 `start-dev-3010.cmd` 或 `npm run dev -- --port 3010`。
+3. 開啟 `http://127.0.0.1:3010/`，展示員工前台：選車班、即時名額、候補狀態與正式登記表單。
+4. 開啟 `/admin` 登入後台，依序展示 Dashboard、預約名單、車班管理、模板管理與操作紀錄。
+5. 在預約名單頁測試 CSV 匯出與 LINE 複製名單。此專案目前只產生可貼到 LINE 的文字，尚未串接 LINE Messaging API。
 
 ## 後台入口
 

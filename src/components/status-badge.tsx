@@ -1,4 +1,6 @@
 import { clsx } from "clsx";
+import { AlertTriangle, CheckCircle2, Clock3, MinusCircle } from "lucide-react";
+import type { ComponentType } from "react";
 
 const labels: Record<string, string> = {
   confirmed: "正取",
@@ -20,9 +22,21 @@ const colors: Record<string, string> = {
   overbooked: "border-orange-800/25 bg-orange-800/10 text-orange-900",
 };
 
+const icons: Record<string, ComponentType<{ size?: number }>> = {
+  confirmed: CheckCircle2,
+  waitlist: Clock3,
+  cancelled: MinusCircle,
+  open: CheckCircle2,
+  full: Clock3,
+  closed: MinusCircle,
+  overbooked: AlertTriangle,
+};
+
 export function StatusBadge({ value, className }: { value: string; className?: string }) {
+  const Icon = icons[value];
   return (
-    <span className={clsx("inline-flex items-center rounded-[5px] border px-2 py-0.5 text-xs font-semibold", colors[value] ?? colors.closed, className)}>
+    <span className={clsx("inline-flex items-center gap-1 rounded-[5px] border px-2 py-0.5 text-xs font-semibold", colors[value] ?? colors.closed, className)}>
+      {Icon && <Icon size={13} />}
       {labels[value] ?? value}
     </span>
   );

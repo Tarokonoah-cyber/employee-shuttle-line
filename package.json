@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:dev": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "seed:demo": "prisma db seed",
     "postinstall": "prisma generate"
   },
   "dependencies": {

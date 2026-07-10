@@ -1,12 +1,21 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Clipboard, Download, Plus, RefreshCw } from "lucide-react";
+import { Clipboard, Download, Pencil, Plus, RefreshCw, Search, UserPlus } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { tomorrowDateInput } from "@/lib/dates";
 
-type Schedule = { id: string; serviceDate: string; routeName: string; departureTime: string; pickupPoint: string; capacity: number };
+type Schedule = {
+  id: string;
+  serviceDate: string;
+  routeName: string;
+  departureTime: string;
+  pickupPoint: string;
+  capacity: number;
+};
+
 type Booking = {
   id: string;
   employeeName: string;
@@ -38,10 +47,23 @@ export default function AdminBookingsPage() {
   const [lineCopy, setLineCopy] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const scheduleOptions = useMemo(() => schedules.map((schedule) => ({
-    value: schedule.id,
-    label: `${schedule.serviceDate.slice(0, 10)} ${schedule.departureTime} ${schedule.routeName}`,
-  })), [schedules]);
+  const scheduleOptions = useMemo(
+    () =>
+      schedules.map((schedule) => ({
+        value: schedule.id,
+        label: `${schedule.serviceDate.slice(0, 10)} ${schedule.departureTime} ${schedule.routeName}`,
+      })),
+    [schedules],
+  );
+
+  const totals = useMemo(
+    () => ({
+      confirmed: bookings.filter((booking) => booking.status === "confirmed").length,
+      waitlist: bookings.filter((booking) => booking.status === "waitlist").length,
+      cancelled: bookings.filter((booking) => booking.status === "cancelled").length,
+    }),
+    [bookings],
+  );
 
   async function loadSchedules() {
     const response = await fetch(`/api/admin/schedules?date=${date}`);
@@ -57,6 +79,7 @@ export default function AdminBookingsPage() {
     if (status) params.set("status", status);
     if (scheduleId) params.set("schedule_id", scheduleId);
     if (keyword) params.set("keyword", keyword);
+
     try {
       const response = await fetch(`/api/admin/bookings?${params.toString()}`);
       const data = await response.json();
@@ -150,80 +173,212 @@ export default function AdminBookingsPage() {
   return (
     <AdminShell title="預約名單">
       <div className="space-y-6">
-        <form className="panel flex flex-wrap items-end gap-3 p-4" onSubmit={search}>
-          <label className="text-sm font-semibold">日期<input className="field mt-1" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
-          <label className="text-sm font-semibold">車班<select className="field mt-1 min-w-56" value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}><option value="">全部車班</option>{scheduleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className="text-sm font-semibold">狀態<select className="field mt-1" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">全部</option><option value="confirmed">正取</option><option value="waitlist">候補</option><option value="cancelled">已取消</option></select></label>
-          <label className="text-sm font-semibold">搜尋<input className="field mt-1" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="姓名、部門、編號、手機" /></label>
-          <button className="btn btn-primary" disabled={loading}><RefreshCw size={16} />查詢</button>
-          <button className="btn btn-secondary" type="button" onClick={exportCsv}><Download size={16} />匯出 CSV</button>
-          <button className="btn btn-secondary" type="button" onClick={copyLineText}><Clipboard size={16} />LINE 複製名單</button>
+        <Card className="p-5">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="quiet-label">Booking Control</p>
+              <h1 className="mt-1 text-2xl font-bold">員工登記名單</h1>
+              <p className="mt-2 text-sm leading-6 text-stone-600">篩選、匯出、LINE 公告與候補轉正取都集中在這裡。</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <Metric label="正取" value={totals.confirmed} />
+              <Metric label="候補" value={totals.waitlist} />
+              <Metric label="取消" value={totals.cancelled} />
+            </div>
+          </div>
+        </Card>
+
+        <form className="panel grid gap-3 p-4 lg:grid-cols-[150px_minmax(220px,1fr)_140px_minmax(180px,1fr)_auto_auto_auto]" onSubmit={search}>
+          <FieldLabel label="日期">
+            <input className="field" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+          </FieldLabel>
+          <FieldLabel label="車班">
+            <select className="field" value={scheduleId} onChange={(event) => setScheduleId(event.target.value)}>
+              <option value="">全部車班</option>
+              {scheduleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </FieldLabel>
+          <FieldLabel label="狀態">
+            <select className="field" value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="">全部</option>
+              <option value="confirmed">正取</option>
+              <option value="waitlist">候補</option>
+              <option value="cancelled">已取消</option>
+            </select>
+          </FieldLabel>
+          <FieldLabel label="搜尋">
+            <input className="field" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="姓名、部門、編號、手機、Code" />
+          </FieldLabel>
+          <Button variant="primary" loading={loading} className="self-end" type="submit"><Search size={16} />查詢</Button>
+          <Button className="self-end" type="button" onClick={exportCsv}><Download size={16} />CSV</Button>
+          <Button className="self-end" type="button" onClick={copyLineText}><Clipboard size={16} />LINE</Button>
         </form>
 
-        {message && <div className="panel p-3 text-sm">{message}</div>}
+        {message && <div className="panel border-border bg-surface-strong p-3 text-sm">{message}</div>}
         {lineCopy && <textarea className="field min-h-48 font-mono text-sm" value={lineCopy} readOnly />}
 
         <section className="grid gap-6 xl:grid-cols-[360px_1fr]">
-          <form className="panel h-fit space-y-3 p-4" onSubmit={addBooking}>
-            <div className="flex items-center gap-2"><Plus size={18} /><h2 className="font-bold">手動新增預約</h2></div>
-            <label className="block text-sm font-semibold">車班<select className="field mt-1" value={addForm.scheduleId} onChange={(e) => setAddForm({ ...addForm, scheduleId: e.target.value })} required><option value="">選擇車班</option>{scheduleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-            <label className="block text-sm font-semibold">員工姓名<input className="field mt-1" value={addForm.employeeName} onChange={(e) => setAddForm({ ...addForm, employeeName: e.target.value })} required /></label>
-            <label className="block text-sm font-semibold">部門<input className="field mt-1" value={addForm.department} onChange={(e) => setAddForm({ ...addForm, department: e.target.value })} required /></label>
-            <label className="block text-sm font-semibold">員工編號<input className="field mt-1" value={addForm.employeeNo} onChange={(e) => setAddForm({ ...addForm, employeeNo: e.target.value })} /></label>
-            <label className="block text-sm font-semibold">手機<input className="field mt-1" value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} /></label>
-            <label className="block text-sm font-semibold">備註<textarea className="field mt-1 min-h-20" value={addForm.note} onChange={(e) => setAddForm({ ...addForm, note: e.target.value })} /></label>
-            <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={addForm.adminOverride} onChange={(e) => setAddForm({ ...addForm, adminOverride: e.target.checked })} />強制加入，允許超收</label>
-            <button className="btn btn-primary w-full">新增預約</button>
-          </form>
-
-          <div className="panel overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead><tr><th>車班</th><th>員工</th><th>狀態</th><th>Code</th><th>備註</th><th>時間</th><th>操作</th></tr></thead>
-                <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id}>
-                      <td>{booking.schedule.serviceDate.slice(0, 10)}<br /><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}</td>
-                      <td><strong>{booking.employeeName}</strong><br /><span className="text-xs text-stone-600">{booking.department} {booking.employeeNo ?? ""} {booking.phone ?? ""}</span></td>
-                      <td><div className="flex flex-col gap-1"><StatusBadge value={booking.status} />{booking.adminOverride && <StatusBadge value="overbooked" />}</div></td>
-                      <td className="font-mono text-xs">{booking.bookingCode}</td>
-                      <td>{booking.note}</td>
-                      <td><span className="text-xs">{new Date(booking.createdAt).toLocaleString("zh-TW")}</span>{booking.cancelledAt && <><br /><span className="text-xs text-stone-600">取消 {new Date(booking.cancelledAt).toLocaleString("zh-TW")}</span></>}</td>
-                      <td>
-                        <div className="flex min-w-72 flex-wrap gap-2">
-                          <button className="btn btn-secondary" onClick={() => setEditing(booking)}>編輯</button>
-                          {booking.status !== "cancelled" && <button className="btn btn-secondary" onClick={() => action(`/api/admin/bookings/${booking.id}/cancel`, undefined, "確定取消此預約？")}>取消</button>}
-                          {booking.status === "waitlist" && <button className="btn btn-secondary" onClick={() => action(`/api/admin/bookings/${booking.id}/confirm`, { adminOverride: false })}>轉正取</button>}
-                          {booking.status === "waitlist" && <button className="btn btn-secondary" onClick={() => action(`/api/admin/bookings/${booking.id}/confirm`, { adminOverride: true }, "確定強制轉正取並允許超收？")}>強制轉正取</button>}
-                          <select className="field max-w-44" defaultValue="" onChange={(e) => e.target.value && action(`/api/admin/bookings/${booking.id}/change-schedule`, { scheduleId: e.target.value, adminOverride: false })}>
-                            <option value="">改車班</option>
-                            {scheduleOptions.filter((option) => option.value !== booking.scheduleId).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                          </select>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {bookings.length === 0 && <tr><td colSpan={7}>{loading ? "讀取中..." : "沒有符合條件的預約。"}</td></tr>}
-                </tbody>
-              </table>
+          <Card className="h-fit p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <UserPlus size={18} className="text-primary" />
+              <div>
+                <p className="quiet-label">Manual Entry</p>
+                <h2 className="font-bold">手動新增預約</h2>
+              </div>
             </div>
-          </div>
+            <form className="space-y-3" onSubmit={addBooking}>
+              <FieldLabel label="車班" required>
+                <select className="field" value={addForm.scheduleId} onChange={(event) => setAddForm({ ...addForm, scheduleId: event.target.value })} required>
+                  <option value="">選擇車班</option>
+                  {scheduleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </FieldLabel>
+              <FieldLabel label="員工姓名" required>
+                <input className="field" value={addForm.employeeName} onChange={(event) => setAddForm({ ...addForm, employeeName: event.target.value })} required />
+              </FieldLabel>
+              <FieldLabel label="部門" required>
+                <input className="field" value={addForm.department} onChange={(event) => setAddForm({ ...addForm, department: event.target.value })} required />
+              </FieldLabel>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <FieldLabel label="員工編號">
+                  <input className="field" value={addForm.employeeNo} onChange={(event) => setAddForm({ ...addForm, employeeNo: event.target.value })} />
+                </FieldLabel>
+                <FieldLabel label="手機">
+                  <input className="field" value={addForm.phone} onChange={(event) => setAddForm({ ...addForm, phone: event.target.value })} />
+                </FieldLabel>
+              </div>
+              <FieldLabel label="備註">
+                <textarea className="field min-h-20" value={addForm.note} onChange={(event) => setAddForm({ ...addForm, note: event.target.value })} />
+              </FieldLabel>
+              <label className="flex items-start gap-2 rounded-[8px] border border-border bg-surface-strong p-3 text-sm font-semibold">
+                <input className="mt-1" type="checkbox" checked={addForm.adminOverride} onChange={(event) => setAddForm({ ...addForm, adminOverride: event.target.checked })} />
+                <span>強制加入，允許超收</span>
+              </label>
+              <Button variant="primary" className="w-full"><Plus size={16} />新增預約</Button>
+            </form>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-border p-4">
+              <div>
+                <p className="quiet-label">Roster</p>
+                <h2 className="font-bold">查詢結果</h2>
+              </div>
+              <Button type="button" onClick={() => search()} loading={loading}><RefreshCw size={16} />重新整理</Button>
+            </div>
+
+            {loading && <SkeletonRows rows={5} />}
+            {!loading && bookings.length === 0 && (
+              <div className="p-4">
+                <EmptyState title="沒有符合條件的預約" description="請調整日期、車班或關鍵字，或從左側手動新增一筆預約。" />
+              </div>
+            )}
+            {!loading && bookings.length > 0 && (
+              <>
+                <div className="hidden overflow-x-auto lg:block">
+                  <table className="table">
+                    <thead><tr><th>車班</th><th>員工</th><th>狀態</th><th>Code</th><th>備註</th><th>建立時間</th><th>操作</th></tr></thead>
+                    <tbody>
+                      {bookings.map((booking) => (
+                        <tr key={booking.id}>
+                          <td><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}<br /><span className="text-xs text-stone-600">{booking.schedule.serviceDate.slice(0, 10)} / {booking.schedule.pickupPoint}</span></td>
+                          <td><strong>{booking.employeeName}</strong><br /><span className="text-xs text-stone-600">{booking.department} {booking.employeeNo ?? ""} {booking.phone ?? ""}</span></td>
+                          <td><div className="flex flex-col gap-1"><StatusBadge value={booking.status} />{booking.adminOverride && <StatusBadge value="overbooked" />}</div></td>
+                          <td className="font-mono text-xs">{booking.bookingCode}</td>
+                          <td className="max-w-44 text-sm text-stone-600">{booking.note}</td>
+                          <td><span className="text-xs">{new Date(booking.createdAt).toLocaleString("zh-TW")}</span>{booking.cancelledAt && <><br /><span className="text-xs text-stone-600">取消 {new Date(booking.cancelledAt).toLocaleString("zh-TW")}</span></>}</td>
+                          <td><BookingActions booking={booking} schedules={scheduleOptions} onEdit={() => setEditing(booking)} onAction={action} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="grid gap-3 p-4 lg:hidden">
+                  {bookings.map((booking) => (
+                    <article key={booking.id} className="rounded-[8px] border border-border bg-surface p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold">{booking.employeeName}</p>
+                          <p className="mt-1 text-sm text-stone-600">{booking.department} {booking.employeeNo ?? ""}</p>
+                        </div>
+                        <StatusBadge value={booking.status} />
+                      </div>
+                      <div className="mt-3 rounded-[7px] bg-surface-strong p-3 text-sm">
+                        <p><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}</p>
+                        <p className="mt-1 text-stone-600">{booking.schedule.serviceDate.slice(0, 10)} / {booking.schedule.pickupPoint}</p>
+                        <p className="mt-1 font-mono text-xs text-stone-600">{booking.bookingCode}</p>
+                      </div>
+                      <div className="mt-3">
+                        <BookingActions booking={booking} schedules={scheduleOptions} onEdit={() => setEditing(booking)} onAction={action} />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
         </section>
 
         {editing && (
           <form className="panel fixed inset-x-4 bottom-4 z-20 mx-auto max-w-3xl space-y-3 p-4 shadow-lg" onSubmit={saveEdit}>
-            <h2 className="font-bold">編輯預約：{editing.bookingCode}</h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-sm font-semibold">員工姓名<input className="field mt-1" value={editing.employeeName} onChange={(e) => setEditing({ ...editing, employeeName: e.target.value })} /></label>
-              <label className="text-sm font-semibold">部門<input className="field mt-1" value={editing.department} onChange={(e) => setEditing({ ...editing, department: e.target.value })} /></label>
-              <label className="text-sm font-semibold">員工編號<input className="field mt-1" value={editing.employeeNo ?? ""} onChange={(e) => setEditing({ ...editing, employeeNo: e.target.value })} /></label>
-              <label className="text-sm font-semibold">手機<input className="field mt-1" value={editing.phone ?? ""} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} /></label>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-bold">編輯預約：<span className="font-mono">{editing.bookingCode}</span></h2>
+              <StatusBadge value={editing.status} />
             </div>
-            <label className="block text-sm font-semibold">備註<textarea className="field mt-1 min-h-20" value={editing.note ?? ""} onChange={(e) => setEditing({ ...editing, note: e.target.value })} /></label>
-            <div className="flex justify-end gap-2"><button className="btn btn-secondary" type="button" onClick={() => setEditing(null)}>取消</button><button className="btn btn-primary">儲存變更</button></div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldLabel label="員工姓名" required><input className="field" value={editing.employeeName} onChange={(event) => setEditing({ ...editing, employeeName: event.target.value })} /></FieldLabel>
+              <FieldLabel label="部門" required><input className="field" value={editing.department} onChange={(event) => setEditing({ ...editing, department: event.target.value })} /></FieldLabel>
+              <FieldLabel label="員工編號"><input className="field" value={editing.employeeNo ?? ""} onChange={(event) => setEditing({ ...editing, employeeNo: event.target.value })} /></FieldLabel>
+              <FieldLabel label="手機"><input className="field" value={editing.phone ?? ""} onChange={(event) => setEditing({ ...editing, phone: event.target.value })} /></FieldLabel>
+            </div>
+            <FieldLabel label="備註"><textarea className="field min-h-20" value={editing.note ?? ""} onChange={(event) => setEditing({ ...editing, note: event.target.value })} /></FieldLabel>
+            <div className="flex justify-end gap-2">
+              <Button type="button" onClick={() => setEditing(null)}>取消</Button>
+              <Button variant="primary" type="submit"><Pencil size={16} />儲存變更</Button>
+            </div>
           </form>
         )}
       </div>
     </AdminShell>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-20 rounded-[8px] border border-border bg-surface-strong p-3">
+      <p className="text-xs text-stone-600">{label}</p>
+      <p className="mt-1 text-xl font-bold text-primary">{value}</p>
+    </div>
+  );
+}
+
+function BookingActions({
+  booking,
+  schedules,
+  onEdit,
+  onAction,
+}: {
+  booking: Booking;
+  schedules: Array<{ value: string; label: string }>;
+  onEdit: () => void;
+  onAction: (url: string, body?: unknown, confirmText?: string) => Promise<void>;
+}) {
+  return (
+    <div className="flex min-w-72 flex-wrap gap-2">
+      <Button type="button" onClick={onEdit}>編輯</Button>
+      {booking.status !== "cancelled" && (
+        <Button type="button" variant="danger" onClick={() => onAction(`/api/admin/bookings/${booking.id}/cancel`, undefined, "確定取消此預約？")}>取消</Button>
+      )}
+      {booking.status === "waitlist" && (
+        <>
+          <Button type="button" onClick={() => onAction(`/api/admin/bookings/${booking.id}/confirm`, { adminOverride: false })}>轉正取</Button>
+          <Button type="button" variant="danger" onClick={() => onAction(`/api/admin/bookings/${booking.id}/confirm`, { adminOverride: true }, "確定強制轉正取並允許超收？")}>強制轉正取</Button>
+        </>
+      )}
+      <select className="field max-w-44" defaultValue="" onChange={(event) => event.target.value && onAction(`/api/admin/bookings/${booking.id}/change-schedule`, { scheduleId: event.target.value, adminOverride: false })}>
+        <option value="">改車班</option>
+        {schedules.filter((option) => option.value !== booking.scheduleId).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    </div>
   );
 }
