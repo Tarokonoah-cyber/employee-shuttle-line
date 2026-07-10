@@ -157,6 +157,18 @@ textarea:focus-visible {
   animation: page-enter 260ms ease-out both;
 }
 
+.bottom-action-enter {
+  animation: bottom-action-enter 180ms ease-out both;
+}
+
+.sheet-enter {
+  animation: sheet-enter 200ms ease-out both;
+}
+
+.receipt-enter {
+  animation: page-enter 220ms ease-out both;
+}
+
 .stagger-item {
   animation: page-enter 260ms ease-out both;
 }
@@ -212,6 +224,28 @@ textarea:focus-visible {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes bottom-action-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

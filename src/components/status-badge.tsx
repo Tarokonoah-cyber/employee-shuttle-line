@@ -7,8 +7,9 @@ const labels: Record<string, string> = {
   waitlist: "候補",
   cancelled: "已取消",
   open: "可登記",
-  full: "額滿候補",
-  closed: "已關閉",
+  "near-full": "即將額滿",
+  full: "候補登記",
+  closed: "登記已關閉",
   overbooked: "已超收",
 };
 
@@ -17,7 +18,8 @@ const colors: Record<string, string> = {
   waitlist: "border-amber-700/25 bg-amber-700/10 text-amber-800",
   cancelled: "border-stone-500/25 bg-stone-500/10 text-stone-700",
   open: "border-green-700/25 bg-green-700/10 text-green-800",
-  full: "border-amber-700/25 bg-amber-700/10 text-amber-800",
+  "near-full": "border-amber-700/25 bg-amber-50 text-amber-800",
+  full: "border-red-700/20 bg-red-50 text-red-800",
   closed: "border-stone-500/25 bg-stone-500/10 text-stone-700",
   overbooked: "border-orange-800/25 bg-orange-800/10 text-orange-900",
 };
@@ -27,6 +29,7 @@ const icons: Record<string, ComponentType<{ size?: number }>> = {
   waitlist: Clock3,
   cancelled: MinusCircle,
   open: CheckCircle2,
+  "near-full": AlertTriangle,
   full: Clock3,
   closed: MinusCircle,
   overbooked: AlertTriangle,
