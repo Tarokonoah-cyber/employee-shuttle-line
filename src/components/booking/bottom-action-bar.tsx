@@ -8,7 +8,7 @@ type BottomActionBarProps = {
 
 export function BottomActionBar({ schedule, onContinue }: BottomActionBarProps) {
   return (
-    <div className="bottom-action-enter fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-8px_24px_rgba(28,25,23,0.08)] backdrop-blur-sm lg:hidden">
+    <div className="bottom-action-enter fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-4px_12px_rgba(28,25,23,0.06)] lg:hidden">
       <div className="mx-auto flex max-w-lg items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-stone-500">已選車班</p>

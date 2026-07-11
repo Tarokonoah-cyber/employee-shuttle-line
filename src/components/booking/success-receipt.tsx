@@ -83,14 +83,14 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
 
       <div className="border-y border-stone-200 bg-stone-50 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-stone-500">預約代碼</p>
             <input
               ref={bookingCodeRef}
               value={bookingCode || "—"}
               readOnly
               aria-label="預約代碼"
-              className="mt-1 w-full bg-transparent font-mono text-2xl font-bold text-emerald-900 outline-none"
+              className="mt-1 w-full bg-transparent font-mono text-2xl font-bold text-emerald-900"
             />
           </div>
           <button

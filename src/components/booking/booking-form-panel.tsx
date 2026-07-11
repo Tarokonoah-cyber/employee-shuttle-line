@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { Clock3, Loader2, MapPin, X } from "lucide-react";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import type { Schedule } from "./types";
 
 type BookingFormPanelProps = {
@@ -38,8 +38,34 @@ function FormField({
 }
 
 export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, onClose }: BookingFormPanelProps) {
+  const [requiredErrors, setRequiredErrors] = useState({ employeeName: "", department: "" });
   const disabled = !schedule || submitting;
   const isWaitlist = Boolean(schedule?.isFull && schedule.waitlistEnabled);
+
+  function submitWithValidation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const nextErrors = {
+      employeeName: String(formData.get("employeeName") ?? "").trim() ? "" : "請填寫員工姓名",
+      department: String(formData.get("department") ?? "").trim() ? "" : "請填寫部門",
+    };
+
+    setRequiredErrors(nextErrors);
+    const firstInvalidName = nextErrors.employeeName ? "employeeName" : nextErrors.department ? "department" : "";
+    if (firstInvalidName) {
+      const firstInvalidElement = event.currentTarget.elements.namedItem(firstInvalidName) as HTMLInputElement | null;
+      firstInvalidElement?.scrollIntoView({ block: "center" });
+      firstInvalidElement?.focus();
+      return;
+    }
+
+    onSubmit(event);
+  }
+
+  function clearRequiredError(name: "employeeName" | "department") {
+    if (!requiredErrors[name]) return;
+    setRequiredErrors((current) => ({ ...current, [name]: "" }));
+  }
 
   return (
     <section
@@ -66,8 +92,8 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
         )}
       </div>
 
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
-        <div className={clsx("space-y-4 px-5 py-4", mode === "mobile" && "overflow-y-auto")}>
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submitWithValidation} noValidate>
+        <div className={clsx("space-y-4 px-5 py-4", mode === "mobile" && "overscroll-contain overflow-y-auto scroll-pb-5")}>
           <div className="rounded-[7px] bg-emerald-50 px-4 py-3">
             {schedule ? (
               <>
@@ -96,14 +122,36 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
             <input
               id={`${mode}-employeeName`}
               name="employeeName"
-              className="field min-h-12"
+              className={clsx("field min-h-12", requiredErrors.employeeName && "border-red-400 bg-red-50")}
               autoComplete="name"
               required
               disabled={disabled}
+              aria-invalid={Boolean(requiredErrors.employeeName)}
+              aria-describedby={requiredErrors.employeeName ? `${mode}-employeeName-error` : undefined}
+              onChange={() => clearRequiredError("employeeName")}
             />
+            {requiredErrors.employeeName && (
+              <span id={`${mode}-employeeName-error`} className="mt-1.5 block text-sm font-medium text-red-700">
+                {requiredErrors.employeeName}
+              </span>
+            )}
           </FormField>
           <FormField label="部門" name={`${mode}-department`} required>
-            <input id={`${mode}-department`} name="department" className="field min-h-12" required disabled={disabled} />
+            <input
+              id={`${mode}-department`}
+              name="department"
+              className={clsx("field min-h-12", requiredErrors.department && "border-red-400 bg-red-50")}
+              required
+              disabled={disabled}
+              aria-invalid={Boolean(requiredErrors.department)}
+              aria-describedby={requiredErrors.department ? `${mode}-department-error` : undefined}
+              onChange={() => clearRequiredError("department")}
+            />
+            {requiredErrors.department && (
+              <span id={`${mode}-department-error`} className="mt-1.5 block text-sm font-medium text-red-700">
+                {requiredErrors.department}
+              </span>
+            )}
           </FormField>
           <FormField label="員工編號" name={`${mode}-employeeNo`} optional>
             <input id={`${mode}-employeeNo`} name="employeeNo" className="field min-h-12" autoComplete="off" disabled={disabled} />
@@ -124,7 +172,7 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
           </FormField>
         </div>
 
-        <div className="mt-auto border-t border-stone-200 bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 lg:pb-5">
+        <div className="mt-auto shrink-0 border-t border-stone-200 bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 lg:pb-5">
           <button type="submit" className="btn btn-primary min-h-12 w-full" disabled={disabled}>
             {submitting && <Loader2 size={17} className="animate-spin" aria-hidden="true" />}
             {submitting ? "送出中" : isWaitlist ? "送出候補登記" : "送出登記"}
