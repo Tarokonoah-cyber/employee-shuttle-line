@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum BookingStatus {
@@ -17,6 +16,12 @@ enum BookingStatus {
 enum BookingCreatedBy {
   employee
   admin
+}
+
+enum BookingCancellationSource {
+  employee
+  admin
+  system
 }
 
 enum NotificationChannel {
@@ -42,6 +47,7 @@ model ShuttleSchedule {
   note             String?
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
+  cancelledAt      DateTime?          @map("cancelled_at")
   bookings         Booking[]
 
   @@index([serviceDate])
@@ -65,6 +71,10 @@ model Booking {
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
   cancelledAt      DateTime?          @map("cancelled_at")
+  cancellationSource BookingCancellationSource? @map("cancellation_source")
+  promotedAt       DateTime?          @map("promoted_at")
+  managementTokenHash String?         @unique @map("management_token_hash")
+  managementTokenCreatedAt DateTime?  @map("management_token_created_at")
   notificationLogs NotificationLog[]
 
   @@index([scheduleId, status])

@@ -5,6 +5,7 @@ import { CheckCircle2, CopyPlus, Layers, Save } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { tomorrowDateInput } from "@/lib/dates";
+import { readJsonResponse } from "@/lib/client-http";
 
 type Template = {
   id: string;
@@ -30,11 +31,16 @@ export default function AdminTemplatesPage() {
 
   async function load() {
     setLoading(true);
-    const response = await fetch("/api/admin/templates");
-    const data = await response.json();
-    if (response.ok) setTemplates(data.templates);
-    else setMessage(data.error ?? "讀取模板失敗");
-    setLoading(false);
+    try {
+      const response = await fetch("/api/admin/templates");
+      const data = await readJsonResponse<{ templates: Template[]; error?: string }>(response, "讀取模板失敗");
+      if (!response.ok) throw new Error(data.error ?? "讀取模板失敗");
+      setTemplates(data.templates);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "讀取模板失敗");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -45,23 +51,31 @@ export default function AdminTemplatesPage() {
     event.preventDefault();
     const url = form.id ? `/api/admin/templates/${form.id}` : "/api/admin/templates";
     const method = form.id ? "PATCH" : "POST";
-    const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    const data = await response.json();
-    setMessage(response.ok ? "模板已儲存" : data.error ?? "儲存模板失敗");
-    if (response.ok) {
+    try {
+      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const data = await readJsonResponse<{ error?: string }>(response, "儲存模板失敗");
+      if (!response.ok) throw new Error(data.error ?? "儲存模板失敗");
+      setMessage("模板已儲存");
       setForm(empty);
       await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "儲存模板失敗");
     }
   }
 
   async function createFromTemplates() {
-    const response = await fetch("/api/admin/schedules/create-from-template", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceDate: targetDate }),
-    });
-    const data = await response.json();
-    setMessage(response.ok ? `已建立 ${data.createdCount} 班，略過 ${data.skippedCount} 班重複車班` : data.error ?? "建立失敗");
+    try {
+      const response = await fetch("/api/admin/schedules/create-from-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceDate: targetDate }),
+      });
+      const data = await readJsonResponse<{ createdCount: number; skippedCount: number; error?: string }>(response, "建立失敗");
+      if (!response.ok) throw new Error(data.error ?? "建立失敗");
+      setMessage(`已建立 ${data.createdCount} 班，略過 ${data.skippedCount} 班重複車班`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "建立失敗");
+    }
   }
 
   return (

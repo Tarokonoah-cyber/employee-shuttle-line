@@ -36,6 +36,7 @@ export async function POST(request: Request) {
           capacity: input.capacity,
           registrationOpen: input.registrationOpen,
           waitlistEnabled: input.waitlistEnabled,
+          cancelledAt: input.cancelled ? new Date() : null,
           note: input.note,
         },
       });

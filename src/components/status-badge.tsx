@@ -11,6 +11,9 @@ const labels: Record<string, string> = {
   full: "候補登記",
   closed: "登記已關閉",
   overbooked: "已超收",
+  promoted: "候補已遞補",
+  schedule_cancelled: "班次已取消",
+  cancellation_closed: "已超過可取消時間",
 };
 
 const colors: Record<string, string> = {
@@ -22,6 +25,9 @@ const colors: Record<string, string> = {
   full: "border-red-700/20 bg-red-50 text-red-800",
   closed: "border-stone-500/25 bg-stone-500/10 text-stone-700",
   overbooked: "border-orange-800/25 bg-orange-800/10 text-orange-900",
+  promoted: "border-emerald-700/25 bg-emerald-50 text-emerald-800",
+  schedule_cancelled: "border-red-700/20 bg-red-50 text-red-800",
+  cancellation_closed: "border-stone-500/25 bg-stone-100 text-stone-700",
 };
 
 const icons: Record<string, ComponentType<{ size?: number }>> = {
@@ -33,6 +39,9 @@ const icons: Record<string, ComponentType<{ size?: number }>> = {
   full: Clock3,
   closed: MinusCircle,
   overbooked: AlertTriangle,
+  promoted: CheckCircle2,
+  schedule_cancelled: MinusCircle,
+  cancellation_closed: Clock3,
 };
 
 export function StatusBadge({ value, className }: { value: string; className?: string }) {

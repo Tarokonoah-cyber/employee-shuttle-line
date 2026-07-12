@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Button, Card, SkeletonRows } from "@/components/ui";
 import { tomorrowDateInput } from "@/lib/dates";
+import { readJsonResponse } from "@/lib/client-http";
 
 type DashboardSchedule = {
   id: string;
@@ -21,6 +22,7 @@ type DashboardSchedule = {
   remainingCount: number;
   isFull: boolean;
   isOverbooked: boolean;
+  cancelledAt?: string | null;
 };
 
 type DashboardData = {
@@ -50,7 +52,7 @@ export default function AdminDashboardPage() {
     setLoading(true);
     fetch(`/api/admin/dashboard?date=${date}`)
       .then(async (response) => {
-        const payload = await response.json();
+        const payload = await readJsonResponse<DashboardData & { error?: string }>(response, "讀取 Dashboard 失敗");
         if (!response.ok) throw new Error(payload.error ?? "讀取 Dashboard 失敗");
         setData(payload);
       })
@@ -180,6 +182,7 @@ export default function AdminDashboardPage() {
 }
 
 function statusFor(schedule: DashboardSchedule) {
+  if (schedule.cancelledAt) return <StatusBadge value="schedule_cancelled" />;
   if (!schedule.registrationOpen) return <StatusBadge value="closed" />;
   if (schedule.isOverbooked) return <StatusBadge value="overbooked" />;
   if (schedule.isFull) return <StatusBadge value="full" />;

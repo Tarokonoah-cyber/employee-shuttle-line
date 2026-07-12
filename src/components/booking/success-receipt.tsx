@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { Check, CheckCircle2, Clock3, Copy, MapPin } from "lucide-react";
+import { Check, CheckCircle2, Clock3, Copy, Link2, MapPin, MessageSquareText } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 
 type SuccessReceiptProps = {
@@ -12,6 +12,9 @@ type SuccessReceiptProps = {
   departureTime: string;
   routeName: string;
   pickupPoint: string;
+  waitlistPosition?: number | null;
+  managementUrl?: string;
+  lineText?: string;
 };
 
 function displayServiceDate(value: string) {
@@ -25,9 +28,11 @@ function displayServiceDate(value: string) {
   }).format(new Date(`${value}T00:00:00+08:00`));
 }
 
-export function SuccessReceipt({ status, bookingCode, date, departureTime, routeName, pickupPoint }: SuccessReceiptProps) {
+export function SuccessReceipt({ status, bookingCode, date, departureTime, routeName, pickupPoint, waitlistPosition, managementUrl, lineText }: SuccessReceiptProps) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [lineCopied, setLineCopied] = useState(false);
   const bookingCodeRef = useRef<HTMLInputElement>(null);
   const isWaitlist = status === "waitlist";
 
@@ -69,6 +74,23 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
     setCopied(copySucceeded);
     setCopyFailed(!copySucceeded);
     if (!copySucceeded) bookingCodeRef.current?.select();
+  }
+
+  async function copyText(value: string, onCopied: () => void) {
+    try {
+      await navigator.clipboard.writeText(value);
+      onCopied();
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+      onCopied();
+    }
   }
 
   return (
@@ -118,6 +140,12 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
           <span className="font-mono text-3xl font-bold text-stone-950">{departureTime || "—"}</span>
           <span className="font-semibold text-stone-800">{routeName || "—"}</span>
         </div>
+        {isWaitlist && waitlistPosition && (
+          <div className="border-b border-stone-100 py-3">
+            <p className="text-xs text-stone-500">目前候補順位</p>
+            <p className="mt-0.5 font-semibold text-amber-800">第 {waitlistPosition} 位</p>
+          </div>
+        )}
         <div className="flex items-center gap-2 py-4 text-sm text-stone-700">
           <MapPin size={17} className="text-stone-500" aria-hidden="true" />
           <span>{pickupPoint || "—"}</span>
@@ -128,7 +156,33 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
           <p>請準時抵達上車點。取消或調整班次請洽 GRO。</p>
         </div>
 
-        <Link href="/" className="btn btn-primary mt-5 min-h-12 w-full">返回首頁</Link>
+        {managementUrl && (
+          <div className="mt-5 border-t border-stone-200 pt-5">
+            <h2 className="font-bold">管理我的報名</h2>
+            <p className="mt-1 text-sm text-stone-600">請保留此連結，可隨時查看候補狀態或取消報名。</p>
+            <Link href={managementUrl} className="btn btn-primary mt-4 min-h-12 w-full">查看／管理我的報名</Link>
+            <div className="mt-3 flex gap-2">
+              <input className="field min-w-0 flex-1 text-xs" value={managementUrl} readOnly aria-label="管理連結" />
+              <button type="button" className="btn btn-secondary shrink-0" onClick={() => copyText(managementUrl, () => setLinkCopied(true))}>
+                <Link2 size={16} aria-hidden="true" />{linkCopied ? "已複製" : "複製連結"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {lineText && (
+          <div className="mt-4 rounded-[7px] border border-stone-200 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-sm font-semibold"><MessageSquareText size={16} />LINE 通知文字</p>
+              <button type="button" className="btn btn-secondary" onClick={() => copyText(lineText, () => setLineCopied(true))}>
+                <Copy size={16} aria-hidden="true" />{lineCopied ? "已複製" : "複製"}
+              </button>
+            </div>
+            <textarea className="mt-3 min-h-36 w-full resize-none bg-transparent text-xs leading-5 text-stone-600 outline-none" value={lineText} readOnly />
+          </div>
+        )}
+
+        <Link href="/" className="btn btn-secondary mt-4 min-h-12 w-full">返回首頁</Link>
       </div>
     </section>
   );

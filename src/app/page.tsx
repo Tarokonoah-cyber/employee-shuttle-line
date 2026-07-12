@@ -13,6 +13,7 @@ import { MobilePageHeader } from "@/components/booking/mobile-page-header";
 import { ShuttleCard } from "@/components/booking/shuttle-card";
 import type { Schedule } from "@/components/booking/types";
 import { addDaysToDateInput, tomorrowDateInput } from "@/lib/dates";
+import { readJsonResponse } from "@/lib/client-http";
 
 export default function Home() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function Home() {
 
       try {
         const response = await fetch(`/api/schedules?date=${date}`, { signal: controller.signal });
-        const data = await response.json();
+        const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
         if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
         setSchedules(data.schedules);
         setSelected((current) => data.schedules.find((schedule: Schedule) => schedule.id === current?.id) ?? null);
@@ -86,19 +87,13 @@ export default function Home() {
           note: String(formData.get("note") ?? ""),
         }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{
+        successUrl?: string;
+        error?: string;
+      }>(response, "登記失敗");
       if (!response.ok) throw new Error(data.error ?? "登記失敗");
-
-      const booking = data.booking;
-      const params = new URLSearchParams({
-        booking_code: booking.bookingCode,
-        status: booking.status,
-        date: booking.schedule.serviceDate.slice(0, 10),
-        route: booking.schedule.routeName,
-        departure_time: booking.schedule.departureTime,
-        pickup_point: booking.schedule.pickupPoint,
-      });
-      router.push(`/booking/success?${params.toString()}`);
+      if (!data.successUrl) throw new Error("登記完成，但無法開啟報名結果");
+      router.push(new URL(data.successUrl).pathname);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "登記失敗，請稍後再試");
     } finally {

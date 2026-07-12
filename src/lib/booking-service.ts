@@ -1,5 +1,7 @@
 import { Prisma, type Booking, type ShuttleSchedule } from "@prisma/client";
+import { bookingDeadline } from "./dates";
 import { buildIdentityKey, generateBookingCode } from "./identity";
+import { generateManagementToken, hashManagementToken } from "./management-token";
 import { getPrisma } from "./prisma";
 
 export type ScheduleWithCounts = ShuttleSchedule & {
@@ -9,6 +11,8 @@ export type ScheduleWithCounts = ShuttleSchedule & {
   remainingCount: number;
   isFull: boolean;
   isOverbooked: boolean;
+  registrationDeadline: Date;
+  isRegistrationClosedByTime: boolean;
 };
 
 type Tx = Prisma.TransactionClient;
@@ -29,6 +33,20 @@ function isPrismaKnownError(error: unknown, code: string) {
 function toJson(value: unknown) {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function bookingAuditSnapshot(booking: Booking) {
+  return {
+    id: booking.id,
+    scheduleId: booking.scheduleId,
+    status: booking.status,
+    adminOverride: booking.adminOverride,
+    createdBy: booking.createdBy,
+    cancelledAt: booking.cancelledAt,
+    cancellationSource: booking.cancellationSource,
+    promotedAt: booking.promotedAt,
+    hasManagementToken: Boolean(booking.managementTokenHash),
+  };
 }
 
 export async function logAudit(
@@ -69,6 +87,7 @@ export async function decorateSchedules<T extends ShuttleSchedule>(schedules: T[
       const waitlistCount = grouped.find((row) => row.status === "waitlist")?._count.status ?? 0;
       const cancelledCount = grouped.find((row) => row.status === "cancelled")?._count.status ?? 0;
       const remainingCount = Math.max(schedule.capacity - confirmedCount, 0);
+      const registrationDeadline = bookingDeadline(schedule.serviceDate, schedule.departureTime);
 
       return {
         ...schedule,
@@ -78,6 +97,8 @@ export async function decorateSchedules<T extends ShuttleSchedule>(schedules: T[
         remainingCount,
         isFull: confirmedCount >= schedule.capacity,
         isOverbooked: confirmedCount > schedule.capacity,
+        registrationDeadline,
+        isRegistrationClosedByTime: Date.now() >= registrationDeadline.getTime(),
       };
     }),
   );
@@ -105,6 +126,14 @@ async function createBookingInTransaction(
 
   if (!schedule.registrationOpen && !input.adminOverride) {
     throw new BusinessError("此車班已關閉登記");
+  }
+
+  if (schedule.cancelledAt && !input.adminOverride) {
+    throw new BusinessError("此車班已取消");
+  }
+
+  if (input.createdBy === "employee" && Date.now() >= bookingDeadline(schedule.serviceDate, schedule.departureTime).getTime()) {
+    throw new BusinessError("此車班已超過報名截止時間");
   }
 
   const identityKey = buildIdentityKey(input);
@@ -137,6 +166,7 @@ async function createBookingInTransaction(
     throw new BusinessError("此車班已額滿且未開放候補");
   }
 
+  const managementToken = generateManagementToken();
   const booking = await tx.booking
     .create({
       data: {
@@ -151,6 +181,8 @@ async function createBookingInTransaction(
         bookingCode: generateBookingCode(),
         status,
         adminOverride,
+        managementTokenHash: hashManagementToken(managementToken),
+        managementTokenCreatedAt: new Date(),
       },
       include: { schedule: true },
     })
@@ -176,7 +208,7 @@ async function createBookingInTransaction(
     source: input.createdBy,
   });
 
-  return booking;
+  return { booking, managementToken };
 }
 
 export async function createEmployeeBooking(input: {
@@ -220,69 +252,98 @@ export async function createAdminBooking(input: {
   }
 }
 
-export async function cancelBooking(id: string) {
+export async function cancelBooking(
+  id: string,
+  options: {
+    source?: "employee" | "admin" | "system";
+    enforceDeadline?: boolean;
+    expectedTokenHash?: string;
+    now?: Date;
+  } = {},
+) {
   const prisma = getPrisma();
+  const locator = await prisma.booking.findUnique({ where: { id }, select: { scheduleId: true } });
+  if (!locator) throw new BusinessError("找不到預約", 404);
 
-  return prisma.$transaction(
-    async (tx) => {
-      const booking = await tx.booking.findUnique({ where: { id }, include: { schedule: true } });
-      if (!booking) throw new BusinessError("找不到預約", 404);
-      if (booking.status === "cancelled") throw new BusinessError("此預約已取消");
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM shuttle_schedules WHERE id = ${locator.scheduleId} FOR UPDATE`;
+          await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${id} FOR UPDATE`;
 
-      await tx.$queryRaw`SELECT id FROM shuttle_schedules WHERE id = ${booking.scheduleId} FOR UPDATE`;
+          const booking = await tx.booking.findUnique({ where: { id }, include: { schedule: true } });
+          if (!booking) throw new BusinessError("找不到預約", 404);
+          if (options.expectedTokenHash && booking.managementTokenHash !== options.expectedTokenHash) {
+            throw new BusinessError("無法使用此管理連結", 404);
+          }
+          if (booking.status === "cancelled") return { cancelled: booking, promoted: null, alreadyCancelled: true };
 
-      const cancelled = await tx.booking.update({
-        where: { id },
-        data: { status: "cancelled", cancelledAt: new Date() },
-        include: { schedule: true },
-      });
+          const now = options.now ?? new Date();
+          if (options.enforceDeadline && booking.schedule.cancelledAt) {
+            throw new BusinessError("此班次已取消，無法再取消報名", 409);
+          }
+          if (options.enforceDeadline && now.getTime() >= bookingDeadline(booking.schedule.serviceDate, booking.schedule.departureTime).getTime()) {
+            throw new BusinessError("已超過可取消時間", 409);
+          }
 
-      await logAudit(tx, {
-        action: "booking.cancel",
-        targetType: "booking",
-        targetId: id,
-        oldValue: booking,
-        newValue: cancelled,
-        source: "admin",
-      });
-
-      let promoted: (Booking & { schedule: ShuttleSchedule }) | null = null;
-
-      if (booking.status === "confirmed") {
-        const confirmedCount = await tx.booking.count({
-          where: { scheduleId: booking.scheduleId, status: "confirmed" },
-        });
-
-        if (confirmedCount < booking.schedule.capacity) {
-          const nextWaitlist = await tx.booking.findFirst({
-            where: { scheduleId: booking.scheduleId, status: "waitlist" },
-            orderBy: { createdAt: "asc" },
+          const cancelled = await tx.booking.update({
+            where: { id },
+            data: {
+              status: "cancelled",
+              cancelledAt: now,
+              cancellationSource: options.source ?? "admin",
+            },
             include: { schedule: true },
           });
 
-          if (nextWaitlist) {
-            promoted = await tx.booking.update({
-              where: { id: nextWaitlist.id },
-              data: { status: "confirmed" },
-              include: { schedule: true },
-            });
+          await logAudit(tx, {
+            action: "booking.cancel",
+            targetType: "booking",
+            targetId: id,
+            oldValue: bookingAuditSnapshot(booking),
+            newValue: bookingAuditSnapshot(cancelled),
+            source: options.source ?? "admin",
+          });
 
-            await logAudit(tx, {
-              action: "booking.auto_promote_waitlist",
-              targetType: "booking",
-              targetId: nextWaitlist.id,
-              oldValue: nextWaitlist,
-              newValue: promoted,
-              source: "admin",
-            });
+          let promoted: (Booking & { schedule: ShuttleSchedule }) | null = null;
+          if (booking.status === "confirmed") {
+            const confirmedCount = await tx.booking.count({ where: { scheduleId: booking.scheduleId, status: "confirmed" } });
+            if (confirmedCount < booking.schedule.capacity) {
+              const nextWaitlist = await tx.booking.findFirst({
+                where: { scheduleId: booking.scheduleId, status: "waitlist" },
+                orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+                include: { schedule: true },
+              });
+
+              if (nextWaitlist) {
+                promoted = await tx.booking.update({
+                  where: { id: nextWaitlist.id },
+                  data: { status: "confirmed", promotedAt: now },
+                  include: { schedule: true },
+                });
+                await logAudit(tx, {
+                  action: "booking.auto_promote_waitlist",
+                  targetType: "booking",
+                  targetId: nextWaitlist.id,
+                  oldValue: bookingAuditSnapshot(nextWaitlist),
+                  newValue: bookingAuditSnapshot(promoted),
+                  source: options.source ?? "admin",
+                });
+              }
+            }
           }
-        }
-      }
 
-      return { cancelled, promoted };
-    },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+          return { cancelled, promoted, alreadyCancelled: false };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (!(isPrismaKnownError(error, "P2034") && attempt < 2)) throw error;
+    }
+  }
+
+  throw new BusinessError("取消處理忙碌中，請稍後再試", 503);
 }
 
 export async function confirmWaitlistBooking(id: string, adminOverride = false) {
@@ -307,7 +368,7 @@ export async function confirmWaitlistBooking(id: string, adminOverride = false) 
 
       const updated = await tx.booking.update({
         where: { id },
-        data: { status: "confirmed", adminOverride: adminOverride ? true : booking.adminOverride },
+        data: { status: "confirmed", adminOverride: adminOverride ? true : booking.adminOverride, promotedAt: new Date() },
         include: { schedule: true },
       });
 
@@ -315,8 +376,8 @@ export async function confirmWaitlistBooking(id: string, adminOverride = false) 
         action: adminOverride ? "booking.force_confirm" : "booking.confirm",
         targetType: "booking",
         targetId: id,
-        oldValue: booking,
-        newValue: updated,
+        oldValue: bookingAuditSnapshot(booking),
+        newValue: bookingAuditSnapshot(updated),
         source: "admin",
       });
 
@@ -355,8 +416,8 @@ export async function updateBooking(id: string, input: Partial<Pick<Booking, "em
       action: "booking.update",
       targetType: "booking",
       targetId: id,
-      oldValue: booking,
-      newValue: updated,
+      oldValue: bookingAuditSnapshot(booking),
+      newValue: bookingAuditSnapshot(updated),
       source: "admin",
     });
 
@@ -406,6 +467,7 @@ export async function changeBookingSchedule(id: string, scheduleId: string, admi
         data: {
           scheduleId,
           status,
+          promotedAt: null,
           adminOverride: adminOverride ? true : booking.adminOverride,
         },
         include: { schedule: true },
@@ -415,8 +477,8 @@ export async function changeBookingSchedule(id: string, scheduleId: string, admi
         action: adminOverride ? "booking.force_change_schedule" : "booking.change_schedule",
         targetType: "booking",
         targetId: id,
-        oldValue: booking,
-        newValue: updated,
+        oldValue: bookingAuditSnapshot(booking),
+        newValue: bookingAuditSnapshot(updated),
         source: "admin",
       });
 

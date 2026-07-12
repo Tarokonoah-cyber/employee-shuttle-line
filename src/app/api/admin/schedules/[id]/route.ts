@@ -24,8 +24,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           departureTime: input.departureTime,
           pickupPoint: input.pickupPoint,
           capacity: input.capacity,
-          registrationOpen: input.registrationOpen,
+          registrationOpen: input.cancelled ? false : input.registrationOpen,
           waitlistEnabled: input.waitlistEnabled,
+          cancelledAt: input.cancelled ? oldValue.cancelledAt ?? new Date() : null,
           note: input.note,
         },
       });

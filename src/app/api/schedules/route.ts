@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const prisma = getPrisma();
 
   const schedules = await prisma.shuttleSchedule.findMany({
-    where: { serviceDate: parseServiceDate(date) },
+    where: { serviceDate: parseServiceDate(date), cancelledAt: null },
     orderBy: [{ departureTime: "asc" }, { routeName: "asc" }],
   });
 

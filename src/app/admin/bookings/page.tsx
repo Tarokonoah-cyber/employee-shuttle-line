@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { tomorrowDateInput } from "@/lib/dates";
+import { readJsonResponse } from "@/lib/client-http";
 
 type Schedule = {
   id: string;
@@ -30,6 +31,8 @@ type Booking = {
   cancelledAt?: string | null;
   scheduleId: string;
   schedule: Schedule;
+  hasManagementToken: boolean;
+  managementTokenCreatedAt?: string | null;
 };
 
 const emptyAdd = { scheduleId: "", employeeName: "", department: "", employeeNo: "", phone: "", note: "", adminOverride: false };
@@ -66,9 +69,14 @@ export default function AdminBookingsPage() {
   );
 
   async function loadSchedules() {
-    const response = await fetch(`/api/admin/schedules?date=${date}`);
-    const data = await response.json();
-    if (response.ok) setSchedules(data.schedules);
+    try {
+      const response = await fetch(`/api/admin/schedules?date=${date}`);
+      const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
+      if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
+      setSchedules(data.schedules);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "讀取車班失敗");
+    }
   }
 
   async function loadBookings() {
@@ -82,7 +90,7 @@ export default function AdminBookingsPage() {
 
     try {
       const response = await fetch(`/api/admin/bookings?${params.toString()}`);
-      const data = await response.json();
+      const data = await readJsonResponse<{ bookings: Booking[]; error?: string }>(response, "讀取預約失敗");
       if (!response.ok) throw new Error(data.error ?? "讀取預約失敗");
       setBookings(data.bookings);
     } catch (error) {
@@ -105,44 +113,55 @@ export default function AdminBookingsPage() {
 
   async function addBooking(event: FormEvent) {
     event.preventDefault();
-    const response = await fetch("/api/admin/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(addForm),
-    });
-    const data = await response.json();
-    setMessage(response.ok ? "預約已新增" : data.error ?? "新增失敗");
-    if (response.ok) {
+    try {
+      const response = await fetch("/api/admin/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      const data = await readJsonResponse<{ error?: string }>(response, "新增失敗");
+      if (!response.ok) throw new Error(data.error ?? "新增失敗");
+      setMessage("預約已新增");
       setAddForm(emptyAdd);
       await loadBookings();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "新增失敗");
     }
   }
 
   async function action(url: string, body?: unknown, confirmText?: string) {
     if (confirmText && !confirm(confirmText)) return;
-    const response = await fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : "{}",
-    });
-    const data = await response.json();
-    setMessage(response.ok ? data.message ?? "操作已完成" : data.error ?? "操作失敗");
-    if (response.ok) await loadBookings();
+    try {
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : "{}",
+      });
+      const data = await readJsonResponse<{ error?: string; message?: string }>(response, "操作失敗");
+      if (!response.ok) throw new Error(data.error ?? "操作失敗");
+      setMessage(data.message ?? "操作已完成");
+      await loadBookings();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "操作失敗");
+    }
   }
 
   async function saveEdit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
-    const response = await fetch(`/api/admin/bookings/${editing.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editing),
-    });
-    const data = await response.json();
-    setMessage(response.ok ? "預約已更新" : data.error ?? "更新失敗");
-    if (response.ok) {
+    try {
+      const response = await fetch(`/api/admin/bookings/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editing),
+      });
+      const data = await readJsonResponse<{ error?: string }>(response, "更新失敗");
+      if (!response.ok) throw new Error(data.error ?? "更新失敗");
+      setMessage("預約已更新");
       setEditing(null);
       await loadBookings();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "更新失敗");
     }
   }
 
@@ -159,15 +178,31 @@ export default function AdminBookingsPage() {
     const params = new URLSearchParams();
     if (date) params.set("date", date);
     if (scheduleId) params.set("schedule_id", scheduleId);
-    const response = await fetch(`/api/admin/line-copy?${params.toString()}`);
-    const data = await response.json();
-    if (!response.ok) {
-      setMessage(data.error ?? "產生公告失敗");
-      return;
+    try {
+      const response = await fetch(`/api/admin/line-copy?${params.toString()}`);
+      const data = await readJsonResponse<{ text: string; error?: string }>(response, "產生公告失敗");
+      if (!response.ok) throw new Error(data.error ?? "產生公告失敗");
+      setLineCopy(data.text);
+      await navigator.clipboard.writeText(data.text);
+      setMessage("公告文字已複製到剪貼簿");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "產生公告失敗");
     }
-    setLineCopy(data.text);
-    await navigator.clipboard.writeText(data.text);
-    setMessage("公告文字已複製到剪貼簿");
+  }
+
+  async function createEmployeeManagementLink(booking: Booking) {
+    if (!confirm(`${booking.hasManagementToken ? "重設" : "建立"} ${booking.employeeName} 的管理連結？重設後舊連結會失效。`)) return;
+    try {
+      const response = await fetch(`/api/admin/bookings/${booking.id}/management-link`, { method: "POST" });
+      const data = await readJsonResponse<{ lineText?: string; error?: string; message?: string }>(response, "建立管理連結失敗");
+      if (!response.ok || !data.lineText) throw new Error(data.error ?? "建立管理連結失敗");
+      setLineCopy(data.lineText);
+      await navigator.clipboard.writeText(data.lineText);
+      setMessage(`${data.message ?? "管理連結已建立"}，LINE 文字已複製`);
+      await loadBookings();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "建立管理連結失敗");
+    }
   }
 
   return (
@@ -277,17 +312,18 @@ export default function AdminBookingsPage() {
               <>
                 <div className="hidden overflow-x-auto lg:block">
                   <table className="table">
-                    <thead><tr><th>車班</th><th>員工</th><th>狀態</th><th>Code</th><th>備註</th><th>建立時間</th><th>操作</th></tr></thead>
+                    <thead><tr><th>車班</th><th>員工</th><th>狀態</th><th>管理連結</th><th>Code</th><th>備註</th><th>建立時間</th><th>操作</th></tr></thead>
                     <tbody>
                       {bookings.map((booking) => (
                         <tr key={booking.id}>
                           <td><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}<br /><span className="text-xs text-stone-600">{booking.schedule.serviceDate.slice(0, 10)} / {booking.schedule.pickupPoint}</span></td>
                           <td><strong>{booking.employeeName}</strong><br /><span className="text-xs text-stone-600">{booking.department} {booking.employeeNo ?? ""} {booking.phone ?? ""}</span></td>
                           <td><div className="flex flex-col gap-1"><StatusBadge value={booking.status} />{booking.adminOverride && <StatusBadge value="overbooked" />}</div></td>
+                          <td><span className={`text-xs font-semibold ${booking.hasManagementToken ? "text-emerald-800" : "text-stone-500"}`}>{booking.hasManagementToken ? "可用" : "尚未建立"}</span></td>
                           <td className="font-mono text-xs">{booking.bookingCode}</td>
                           <td className="max-w-44 text-sm text-stone-600">{booking.note}</td>
                           <td><span className="text-xs">{new Date(booking.createdAt).toLocaleString("zh-TW")}</span>{booking.cancelledAt && <><br /><span className="text-xs text-stone-600">取消 {new Date(booking.cancelledAt).toLocaleString("zh-TW")}</span></>}</td>
-                          <td><BookingActions booking={booking} schedules={scheduleOptions} onEdit={() => setEditing(booking)} onAction={action} /></td>
+                          <td><BookingActions booking={booking} schedules={scheduleOptions} onEdit={() => setEditing(booking)} onAction={action} onManagementLink={() => createEmployeeManagementLink(booking)} /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -307,9 +343,10 @@ export default function AdminBookingsPage() {
                         <p><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}</p>
                         <p className="mt-1 text-stone-600">{booking.schedule.serviceDate.slice(0, 10)} / {booking.schedule.pickupPoint}</p>
                         <p className="mt-1 font-mono text-xs text-stone-600">{booking.bookingCode}</p>
+                        <p className="mt-1 text-xs text-stone-600">管理連結：{booking.hasManagementToken ? "可用" : "尚未建立"}</p>
                       </div>
                       <div className="mt-3">
-                        <BookingActions booking={booking} schedules={scheduleOptions} onEdit={() => setEditing(booking)} onAction={action} />
+                        <BookingActions booking={booking} schedules={scheduleOptions} onEdit={() => setEditing(booking)} onAction={action} onManagementLink={() => createEmployeeManagementLink(booking)} />
                       </div>
                     </article>
                   ))}
@@ -357,15 +394,18 @@ function BookingActions({
   schedules,
   onEdit,
   onAction,
+  onManagementLink,
 }: {
   booking: Booking;
   schedules: Array<{ value: string; label: string }>;
   onEdit: () => void;
   onAction: (url: string, body?: unknown, confirmText?: string) => Promise<void>;
+  onManagementLink: () => void;
 }) {
   return (
     <div className="flex min-w-72 flex-wrap gap-2">
       <Button type="button" onClick={onEdit}>編輯</Button>
+      <Button type="button" onClick={onManagementLink}><Clipboard size={15} />{booking.hasManagementToken ? "重設管理連結" : "建立管理連結"}</Button>
       {booking.status !== "cancelled" && (
         <Button type="button" variant="danger" onClick={() => onAction(`/api/admin/bookings/${booking.id}/cancel`, undefined, "確定取消此預約？")}>取消</Button>
       )}

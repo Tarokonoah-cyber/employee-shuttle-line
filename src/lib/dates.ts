@@ -62,3 +62,38 @@ export function startOfTaipeiDateInput(value: string) {
 
   return new Date(Date.UTC(year, month - 1, day, -8, 0, 0, 0));
 }
+
+export function taipeiScheduleDateTime(serviceDate: Date | string, departureTime: string) {
+  const date = displayDate(serviceDate);
+  const match = /^(\d{2}):(\d{2})$/.exec(departureTime);
+  if (!match) throw new Error("發車時間格式不正確");
+
+  const [year, month, day] = date.split("-").map(Number);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!year || !month || !day || hour > 23 || minute > 59) throw new Error("發車時間格式不正確");
+
+  return new Date(Date.UTC(year, month - 1, day, hour - 8, minute));
+}
+
+export function bookingCutoffMinutes() {
+  const parsed = Number(process.env.BOOKING_CUTOFF_MINUTES ?? "60");
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 60;
+}
+
+export function bookingDeadline(serviceDate: Date | string, departureTime: string, cutoffMinutes = bookingCutoffMinutes()) {
+  return new Date(taipeiScheduleDateTime(serviceDate, departureTime).getTime() - cutoffMinutes * 60_000);
+}
+
+export function taipeiDateTime(value: Date) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(value);
+}

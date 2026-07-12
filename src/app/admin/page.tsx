@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole, Route, ShieldCheck } from "lucide-react";
+import { readJsonResponse } from "@/lib/client-http";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function AdminLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{ error?: string }>(response, "登入失敗");
       if (!response.ok) throw new Error(data.error ?? "登入失敗");
       router.replace("/admin/dashboard");
     } catch (err) {

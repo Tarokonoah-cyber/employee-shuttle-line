@@ -10,8 +10,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const { id } = await context.params;
     const input = updateBookingSchema.parse(await request.json());
-    const booking = await updateBooking(id, input);
-    return NextResponse.json({ booking });
+    await updateBooking(id, input);
+    return NextResponse.json({ message: "預約資料已更新" });
   } catch (error) {
     if (isBusinessError(error)) return jsonError(error.message, error.status);
     if (error instanceof Error) return jsonError(error.message);

@@ -8,10 +8,11 @@ export async function PATCH(_request: Request, context: { params: Promise<{ id: 
 
   try {
     const { id } = await context.params;
-    const result = await cancelBooking(id);
+    const result = await cancelBooking(id, { source: "admin" });
     return NextResponse.json({
-      ...result,
-      message: result.promoted
+      message: result.alreadyCancelled
+        ? "此預約已取消"
+        : result.promoted
         ? `已取消，並自動遞補候補：${result.promoted.employeeName}`
         : "已取消，沒有候補需要遞補",
     });

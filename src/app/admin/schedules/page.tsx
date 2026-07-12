@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { tomorrowDateInput } from "@/lib/dates";
+import { readJsonResponse } from "@/lib/client-http";
 
 type Schedule = {
   id: string;
@@ -22,6 +23,7 @@ type Schedule = {
   cancelledCount: number;
   remainingCount: number;
   isOverbooked: boolean;
+  cancelledAt?: string | null;
 };
 
 const emptyForm = {
@@ -33,6 +35,7 @@ const emptyForm = {
   capacity: 20,
   registrationOpen: true,
   waitlistEnabled: true,
+  cancelled: false,
   note: "",
 };
 
@@ -63,7 +66,7 @@ export default function AdminSchedulesPage() {
     setMessage("");
     try {
       const response = await fetch(`/api/admin/schedules?date=${date}`);
-      const data = await response.json();
+      const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
       if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
       setSchedules(data.schedules);
     } catch (error) {
@@ -88,7 +91,7 @@ export default function AdminSchedulesPage() {
 
     try {
       const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const data = await response.json();
+      const data = await readJsonResponse<{ error?: string }>(response, "儲存車班失敗");
       if (!response.ok) throw new Error(data.error ?? "儲存車班失敗");
       setForm(emptyForm);
       setDate(payload.serviceDate);
@@ -103,22 +106,32 @@ export default function AdminSchedulesPage() {
 
   async function remove(id: string) {
     if (!confirm("確定要刪除此車班？已有預約紀錄的車班會被阻擋。")) return;
-    const response = await fetch(`/api/admin/schedules/${id}`, { method: "DELETE" });
-    const data = await response.json();
-    setMessage(response.ok ? "車班已刪除" : data.error ?? "刪除失敗");
-    await load();
+    try {
+      const response = await fetch(`/api/admin/schedules/${id}`, { method: "DELETE" });
+      const data = await readJsonResponse<{ error?: string }>(response, "刪除失敗");
+      if (!response.ok) throw new Error(data.error ?? "刪除失敗");
+      setMessage("車班已刪除");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "刪除失敗");
+    }
   }
 
   async function createTomorrowFromTemplates() {
-    const response = await fetch("/api/admin/schedules/create-from-template", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceDate: tomorrowDateInput() }),
-    });
-    const data = await response.json();
-    setMessage(response.ok ? `已建立 ${data.createdCount} 班，略過 ${data.skippedCount} 班重複車班` : data.error ?? "快速建立失敗");
-    setDate(tomorrowDateInput());
-    await load();
+    try {
+      const response = await fetch("/api/admin/schedules/create-from-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceDate: tomorrowDateInput() }),
+      });
+      const data = await readJsonResponse<{ createdCount: number; skippedCount: number; error?: string }>(response, "快速建立失敗");
+      if (!response.ok) throw new Error(data.error ?? "快速建立失敗");
+      setMessage(`已建立 ${data.createdCount} 班，略過 ${data.skippedCount} 班重複車班`);
+      setDate(tomorrowDateInput());
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "快速建立失敗");
+    }
   }
 
   function editSchedule(schedule: Schedule) {
@@ -131,6 +144,7 @@ export default function AdminSchedulesPage() {
       capacity: schedule.capacity,
       registrationOpen: schedule.registrationOpen,
       waitlistEnabled: schedule.waitlistEnabled,
+      cancelled: Boolean(schedule.cancelledAt),
       note: schedule.note ?? "",
     });
   }
@@ -166,6 +180,10 @@ export default function AdminSchedulesPage() {
               <label className="flex items-center gap-2 rounded-[8px] border border-border bg-surface-strong p-3 text-sm font-semibold">
                 <input type="checkbox" checked={form.registrationOpen} onChange={(event) => setForm({ ...form, registrationOpen: event.target.checked })} />
                 開放登記
+              </label>
+              <label className="flex items-center gap-2 rounded-[8px] border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+                <input type="checkbox" checked={form.cancelled} onChange={(event) => setForm({ ...form, cancelled: event.target.checked, registrationOpen: event.target.checked ? false : form.registrationOpen })} />
+                班次已取消
               </label>
               <label className="flex items-center gap-2 rounded-[8px] border border-border bg-surface-strong p-3 text-sm font-semibold">
                 <input type="checkbox" checked={form.waitlistEnabled} onChange={(event) => setForm({ ...form, waitlistEnabled: event.target.checked })} />
@@ -274,6 +292,7 @@ function ScheduleRow({ schedule, onEdit, onRemove }: { schedule: Schedule; onEdi
 }
 
 function statusFor(schedule: Schedule) {
+  if (schedule.cancelledAt) return <StatusBadge value="schedule_cancelled" />;
   if (!schedule.registrationOpen) return <StatusBadge value="closed" />;
   if (schedule.isOverbooked) return <StatusBadge value="overbooked" />;
   if (schedule.confirmedCount >= schedule.capacity) return <StatusBadge value="full" />;

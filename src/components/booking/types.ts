@@ -13,12 +13,16 @@ export type Schedule = {
   remainingCount: number;
   isFull: boolean;
   isOverbooked: boolean;
+  cancelledAt?: string | null;
+  registrationDeadline: string;
+  isRegistrationClosedByTime: boolean;
 };
 
 export type EmployeeScheduleState = "open" | "near-full" | "full" | "closed" | "overbooked";
 
 export function getEmployeeScheduleState(schedule: Schedule): EmployeeScheduleState {
   if (!schedule.registrationOpen) return "closed";
+  if (schedule.isRegistrationClosedByTime) return "closed";
   if (schedule.isOverbooked) return "overbooked";
   if (schedule.isFull) return schedule.waitlistEnabled ? "full" : "closed";
 
@@ -28,5 +32,5 @@ export function getEmployeeScheduleState(schedule: Schedule): EmployeeScheduleSt
 }
 
 export function canRegisterSchedule(schedule: Schedule) {
-  return schedule.registrationOpen && (!schedule.isFull || schedule.waitlistEnabled);
+  return schedule.registrationOpen && !schedule.isRegistrationClosedByTime && !schedule.cancelledAt && (!schedule.isFull || schedule.waitlistEnabled);
 }

@@ -23,6 +23,7 @@ export const scheduleInputSchema = z.object({
   capacity: z.coerce.number().int().min(1, "名額至少為 1"),
   registrationOpen: z.boolean().optional().default(true),
   waitlistEnabled: z.boolean().optional().default(true),
+  cancelled: z.boolean().optional().default(false),
   note: optionalText,
 });
 

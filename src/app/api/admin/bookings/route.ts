@@ -37,7 +37,13 @@ export async function GET(request: Request) {
     orderBy: [{ schedule: { serviceDate: "asc" } }, { schedule: { departureTime: "asc" } }, { createdAt: "asc" }],
   });
 
-  return NextResponse.json({ bookings });
+  return NextResponse.json({
+    bookings: bookings.map(({ managementTokenHash, managementTokenCreatedAt, ...booking }) => ({
+      ...booking,
+      hasManagementToken: Boolean(managementTokenHash),
+      managementTokenCreatedAt,
+    })),
+  });
 }
 
 export async function POST(request: Request) {
@@ -46,8 +52,11 @@ export async function POST(request: Request) {
 
   try {
     const input = adminBookingInputSchema.parse(await request.json());
-    const booking = await createAdminBooking(input);
-    return NextResponse.json({ booking }, { status: 201 });
+    const { booking } = await createAdminBooking(input);
+    return NextResponse.json(
+      { booking: { id: booking.id, bookingCode: booking.bookingCode, status: booking.status } },
+      { status: 201 },
+    );
   } catch (error) {
     if (isBusinessError(error)) return jsonError(error.message, error.status);
     if (error instanceof Error) return jsonError(error.message);

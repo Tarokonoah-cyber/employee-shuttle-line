@@ -9,8 +9,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const { id } = await context.params;
     const body = await request.json().catch(() => ({}));
-    const booking = await confirmWaitlistBooking(id, Boolean(body.adminOverride));
-    return NextResponse.json({ booking });
+    await confirmWaitlistBooking(id, Boolean(body.adminOverride));
+    return NextResponse.json({ message: "候補已轉為正取" });
   } catch (error) {
     if (isBusinessError(error)) return jsonError(error.message, error.status);
     if (error instanceof Error) return jsonError(error.message);
