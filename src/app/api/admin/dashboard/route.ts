@@ -1,49 +1,87 @@
 import { NextResponse } from "next/server";
-import { decorateSchedules } from "@/lib/booking-service";
-import { parseServiceDate, startOfTaipeiDateInput, todayDateInput, tomorrowDateInput } from "@/lib/dates";
+import {
+  buildDashboardPayload,
+  buildDashboardSchedules,
+  buildLatestBookings,
+  emptyDashboardPayload,
+  normalizeDashboardDate,
+} from "@/lib/admin-dashboard";
+import { parseServiceDate, startOfTaipeiDateInput, todayDateInput } from "@/lib/dates";
 import { requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const auth = await requireAdminApi();
   if (auth) return auth;
 
   const url = new URL(request.url);
-  const selectedDate = url.searchParams.get("date") ?? tomorrowDateInput();
+  const selectedDate = normalizeDashboardDate(url.searchParams.get("date"));
   const prisma = getPrisma();
-  const serviceDate = parseServiceDate(selectedDate);
-  const todayStart = startOfTaipeiDateInput(todayDateInput());
-  const selectedSchedules = await prisma.shuttleSchedule.findMany({
-    where: { serviceDate },
-    orderBy: [{ departureTime: "asc" }],
-  });
-  const schedules = await decorateSchedules(selectedSchedules);
 
-  const [latestBookings, todayNew] = await Promise.all([
-    prisma.booking.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      include: { schedule: true },
-    }),
-    prisma.booking.count({
-      where: { createdAt: { gte: todayStart } },
-    }),
-  ]);
+  try {
+    const serviceDate = parseServiceDate(selectedDate);
+    const todayStart = startOfTaipeiDateInput(todayDateInput());
 
-  const summary = schedules.reduce(
-    (acc, schedule) => {
-      acc.confirmed += schedule.confirmedCount;
-      acc.waitlist += schedule.waitlistCount;
-      acc.cancelled += schedule.cancelledCount;
-      acc.remaining += schedule.remainingCount;
-      return acc;
-    },
-    { confirmed: 0, waitlist: 0, cancelled: 0, remaining: 0 },
-  );
+    const [selectedSchedules, latestBookingRows, todayNew] = await Promise.all([
+      prisma.shuttleSchedule.findMany({
+        where: { serviceDate },
+        orderBy: [{ departureTime: "asc" }, { routeName: "asc" }],
+      }),
+      prisma.booking.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          employeeName: true,
+          department: true,
+          status: true,
+          bookingCode: true,
+          createdAt: true,
+          scheduleId: true,
+        },
+      }),
+      prisma.booking.count({
+        where: { createdAt: { gte: todayStart } },
+      }),
+    ]);
 
-  const attention = schedules.filter(
-    (schedule) => schedule.isFull || schedule.waitlistCount > 0 || !schedule.registrationOpen || schedule.isOverbooked,
-  );
+    const scheduleIds = selectedSchedules.map((schedule) => schedule.id);
+    const latestScheduleIds = Array.from(new Set(latestBookingRows.map((booking) => booking.scheduleId)));
 
-  return NextResponse.json({ date: selectedDate, summary: { ...summary, todayNew }, schedules, latestBookings, attention });
+    const [statusCounts, latestSchedules] = await Promise.all([
+      scheduleIds.length
+        ? prisma.booking.groupBy({
+            by: ["scheduleId", "status"],
+            where: { scheduleId: { in: scheduleIds } },
+            _count: { status: true },
+          })
+        : Promise.resolve([]),
+      latestScheduleIds.length
+        ? prisma.shuttleSchedule.findMany({
+            where: { id: { in: latestScheduleIds } },
+            select: { id: true, routeName: true, departureTime: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const countsByScheduleId = new Map<string, typeof statusCounts>();
+    for (const row of statusCounts) {
+      countsByScheduleId.set(row.scheduleId, [...(countsByScheduleId.get(row.scheduleId) ?? []), row]);
+    }
+
+    const schedules = buildDashboardSchedules(selectedSchedules, countsByScheduleId);
+    const latestBookings = buildLatestBookings(latestBookingRows, latestSchedules);
+    const payload = buildDashboardPayload({ date: selectedDate, schedules, latestBookings, todayNew });
+
+    return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Admin dashboard data load failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      code: typeof error === "object" && error && "code" in error ? String(error.code) : undefined,
+    });
+
+    return NextResponse.json(emptyDashboardPayload(selectedDate), { headers: { "Cache-Control": "no-store" } });
+  }
 }
