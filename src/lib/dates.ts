@@ -1,3 +1,5 @@
+import { normalizeDepartureTime } from "./schedule-time";
+
 export const APP_TIME_ZONE = "Asia/Taipei";
 
 const dateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -65,7 +67,8 @@ export function startOfTaipeiDateInput(value: string) {
 
 export function taipeiScheduleDateTime(serviceDate: Date | string, departureTime: string) {
   const date = displayDate(serviceDate);
-  const match = /^(\d{2}):(\d{2})$/.exec(departureTime);
+  const normalizedDepartureTime = normalizeDepartureTime(departureTime);
+  const match = /^(\d{2}):(\d{2})$/.exec(normalizedDepartureTime ?? "");
   if (!match) throw new Error("發車時間格式不正確");
 
   const [year, month, day] = date.split("-").map(Number);

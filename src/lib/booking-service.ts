@@ -3,6 +3,7 @@ import { bookingDeadline } from "./dates";
 import { buildIdentityKey, generateBookingCode } from "./identity";
 import { generateManagementToken, hashManagementToken } from "./management-token";
 import { getPrisma } from "./prisma";
+import { safeDepartureTime } from "./schedule-time";
 
 export type ScheduleWithCounts = ShuttleSchedule & {
   confirmedCount: number;
@@ -13,6 +14,12 @@ export type ScheduleWithCounts = ShuttleSchedule & {
   isOverbooked: boolean;
   registrationDeadline: Date;
   isRegistrationClosedByTime: boolean;
+};
+
+type ScheduleStatusCount = {
+  scheduleId: string;
+  status: Booking["status"];
+  _count: { status: number };
 };
 
 type Tx = Prisma.TransactionClient;
@@ -72,36 +79,64 @@ export async function logAudit(
   });
 }
 
+export function decorateScheduleRows<T extends ShuttleSchedule>(schedules: T[], grouped: ScheduleStatusCount[], now = new Date()) {
+  const countsByScheduleId = new Map<string, typeof grouped>();
+  for (const row of grouped) {
+    countsByScheduleId.set(row.scheduleId, [...(countsByScheduleId.get(row.scheduleId) ?? []), row]);
+  }
+
+  return schedules.map((schedule) => {
+    const scheduleCounts = countsByScheduleId.get(schedule.id) ?? [];
+    const confirmedCount = scheduleCounts.find((row) => row.status === "confirmed")?._count.status ?? 0;
+    const waitlistCount = scheduleCounts.find((row) => row.status === "waitlist")?._count.status ?? 0;
+    const cancelledCount = scheduleCounts.find((row) => row.status === "cancelled")?._count.status ?? 0;
+    const capacity = Number.isFinite(schedule.capacity) ? Math.max(Math.trunc(schedule.capacity), 0) : 0;
+    const remainingCount = Math.max(capacity - confirmedCount, 0);
+    const departureTime = safeDepartureTime(schedule.departureTime);
+    let registrationDeadline = new Date(0);
+    let isRegistrationClosedByTime = true;
+
+    if (departureTime !== "--:--") {
+      try {
+        registrationDeadline = bookingDeadline(schedule.serviceDate, departureTime);
+        isRegistrationClosedByTime = now.getTime() >= registrationDeadline.getTime();
+      } catch {
+        registrationDeadline = new Date(0);
+      }
+    }
+
+    return {
+      ...schedule,
+      departureTime,
+      capacity,
+      registrationOpen: Boolean(schedule.registrationOpen) && departureTime !== "--:--",
+      waitlistEnabled: Boolean(schedule.waitlistEnabled),
+      routeName: schedule.routeName ?? "",
+      pickupPoint: schedule.pickupPoint ?? "",
+      note: schedule.note ?? null,
+      confirmedCount,
+      waitlistCount,
+      cancelledCount,
+      remainingCount,
+      isFull: confirmedCount >= capacity,
+      isOverbooked: confirmedCount > capacity,
+      registrationDeadline,
+      isRegistrationClosedByTime,
+    };
+  });
+}
+
 export async function decorateSchedules<T extends ShuttleSchedule>(schedules: T[]) {
   const prisma = getPrisma();
+  if (schedules.length === 0) return [];
 
-  return Promise.all(
-    schedules.map(async (schedule) => {
-      const grouped = await prisma.booking.groupBy({
-        by: ["status"],
-        where: { scheduleId: schedule.id },
-        _count: { status: true },
-      });
+  const grouped = await prisma.booking.groupBy({
+    by: ["scheduleId", "status"],
+    where: { scheduleId: { in: schedules.map((schedule) => schedule.id) } },
+    _count: { status: true },
+  });
 
-      const confirmedCount = grouped.find((row) => row.status === "confirmed")?._count.status ?? 0;
-      const waitlistCount = grouped.find((row) => row.status === "waitlist")?._count.status ?? 0;
-      const cancelledCount = grouped.find((row) => row.status === "cancelled")?._count.status ?? 0;
-      const remainingCount = Math.max(schedule.capacity - confirmedCount, 0);
-      const registrationDeadline = bookingDeadline(schedule.serviceDate, schedule.departureTime);
-
-      return {
-        ...schedule,
-        confirmedCount,
-        waitlistCount,
-        cancelledCount,
-        remainingCount,
-        isFull: confirmedCount >= schedule.capacity,
-        isOverbooked: confirmedCount > schedule.capacity,
-        registrationDeadline,
-        isRegistrationClosedByTime: Date.now() >= registrationDeadline.getTime(),
-      };
-    }),
-  );
+  return decorateScheduleRows(schedules, grouped);
 }
 
 async function createBookingInTransaction(

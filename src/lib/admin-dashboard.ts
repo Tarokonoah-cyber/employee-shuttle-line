@@ -1,5 +1,6 @@
 import type { Booking, BookingStatus, ShuttleSchedule } from "@prisma/client";
 import { bookingDeadline, displayDate, tomorrowDateInput } from "./dates";
+import { safeDepartureTime } from "./schedule-time";
 
 type StatusCount = {
   status: BookingStatus;
@@ -81,10 +82,6 @@ function safePositiveInteger(value: number) {
   return Number.isFinite(value) ? Math.max(Math.trunc(value), 0) : 0;
 }
 
-function safeTime(value: string | null | undefined) {
-  return /^\d{2}:\d{2}$/.test(value ?? "") ? value! : "--:--";
-}
-
 function isoOrNull(value: Date | null | undefined) {
   return value instanceof Date && !Number.isNaN(value.getTime()) ? value.toISOString() : null;
 }
@@ -96,7 +93,7 @@ export function buildDashboardSchedules(schedules: ShuttleSchedule[], countsBySc
     const confirmedCount = countFor(statusCounts, "confirmed");
     const waitlistCount = countFor(statusCounts, "waitlist");
     const cancelledCount = countFor(statusCounts, "cancelled");
-    const departureTime = safeTime(schedule.departureTime);
+    const departureTime = safeDepartureTime(schedule.departureTime);
     const remainingCount = Math.max(capacity - confirmedCount, 0);
 
     let registrationDeadline: Date | null = null;
@@ -143,7 +140,7 @@ export function buildLatestBookings(bookings: LatestBookingSource[], schedules: 
       createdAt: booking.createdAt.toISOString(),
       schedule: {
         routeName: schedule?.routeName ?? "已刪除班次",
-        departureTime: safeTime(schedule?.departureTime),
+        departureTime: safeDepartureTime(schedule?.departureTime),
       },
     };
   });

@@ -1,10 +1,29 @@
-import { z } from "zod";
+﻿import { z } from "zod";
+import { normalizeDepartureTime } from "./schedule-time";
 
-const optionalText = z.string().trim().optional().nullable().transform((value) => value || null);
+const optionalText = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((value) => value || null);
+
+const departureTimeInput = z
+  .string()
+  .trim()
+  .transform((value, ctx) => {
+    const normalized = normalizeDepartureTime(value);
+    if (!normalized) {
+      ctx.addIssue({ code: "custom", message: "發車時間格式需為 HH:mm" });
+      return z.NEVER;
+    }
+
+    return normalized;
+  });
 
 export const bookingInputSchema = z.object({
   scheduleId: z.string().min(1, "請選擇車班"),
-  employeeName: z.string().trim().min(1, "請填寫員工姓名"),
+  employeeName: z.string().trim().min(1, "請填寫姓名"),
   department: z.string().trim().min(1, "請填寫部門"),
   employeeNo: optionalText,
   phone: optionalText,
@@ -16,9 +35,9 @@ export const adminBookingInputSchema = bookingInputSchema.extend({
 });
 
 export const scheduleInputSchema = z.object({
-  serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式不正確"),
+  serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式需為 YYYY-MM-DD"),
   routeName: z.string().trim().min(1, "請填寫車班名稱"),
-  departureTime: z.string().trim().min(1, "請填寫發車時間"),
+  departureTime: departureTimeInput,
   pickupPoint: z.string().trim().min(1, "請填寫上車點"),
   capacity: z.coerce.number().int().min(1, "名額至少為 1"),
   registrationOpen: z.boolean().optional().default(true),
@@ -28,8 +47,8 @@ export const scheduleInputSchema = z.object({
 });
 
 export const templateInputSchema = z.object({
-  routeName: z.string().trim().min(1, "請填寫模板名稱"),
-  departureTime: z.string().trim().min(1, "請填寫發車時間"),
+  routeName: z.string().trim().min(1, "請填寫範本名稱"),
+  departureTime: departureTimeInput,
   pickupPoint: z.string().trim().min(1, "請填寫上車點"),
   defaultCapacity: z.coerce.number().int().min(1, "預設名額至少為 1"),
   waitlistEnabled: z.boolean().optional().default(true),
@@ -38,7 +57,7 @@ export const templateInputSchema = z.object({
 });
 
 export const updateBookingSchema = z.object({
-  employeeName: z.string().trim().min(1, "請填寫員工姓名").optional(),
+  employeeName: z.string().trim().min(1, "請填寫姓名").optional(),
   department: z.string().trim().min(1, "請填寫部門").optional(),
   employeeNo: optionalText.optional(),
   phone: optionalText.optional(),

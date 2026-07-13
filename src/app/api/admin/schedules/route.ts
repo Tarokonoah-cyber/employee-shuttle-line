@@ -5,18 +5,34 @@ import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 import { scheduleInputSchema } from "@/lib/schemas";
 
+export const dynamic = "force-dynamic";
+
+function safeDateInput(value: string | null) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") ? value! : null;
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdminApi();
   if (auth) return auth;
 
-  const date = new URL(request.url).searchParams.get("date");
+  const date = safeDateInput(new URL(request.url).searchParams.get("date"));
   const prisma = getPrisma();
-  const schedules = await prisma.shuttleSchedule.findMany({
-    where: date ? { serviceDate: parseServiceDate(date) } : undefined,
-    orderBy: [{ serviceDate: "asc" }, { departureTime: "asc" }],
-  });
 
-  return NextResponse.json({ schedules: await decorateSchedules(schedules) });
+  try {
+    const schedules = await prisma.shuttleSchedule.findMany({
+      where: date ? { serviceDate: parseServiceDate(date) } : undefined,
+      orderBy: [{ serviceDate: "asc" }, { departureTime: "asc" }],
+    });
+
+    return NextResponse.json({ schedules: await decorateSchedules(schedules) }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Admin schedules load failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      code: typeof error === "object" && error && "code" in error ? String(error.code) : undefined,
+    });
+
+    return NextResponse.json({ schedules: [] }, { headers: { "Cache-Control": "no-store" } });
+  }
 }
 
 export async function POST(request: Request) {
