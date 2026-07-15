@@ -101,6 +101,10 @@ textarea:focus-visible {
   cursor: not-allowed;
 }
 
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 .btn-primary {
   background: var(--primary);
   color: var(--primary-foreground);
@@ -139,10 +143,42 @@ textarea:focus-visible {
 }
 
 .executive-card {
-  background: linear-gradient(180deg, var(--surface), #f8f4ec);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-strong);
+  padding: 0.18rem 0.48rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.status-chip-success {
+  border-color: rgba(22, 101, 52, 0.22);
+  background: rgba(22, 101, 52, 0.08);
+  color: var(--success);
+}
+
+.dialog-overlay[data-state="open"] {
+  animation: dialog-fade 160ms ease-out both;
+}
+
+.dialog-panel[data-state="open"] {
+  animation: dialog-panel 190ms ease-out both;
+}
+
+.dialog-panel[data-state="closed"],
+.dialog-overlay[data-state="closed"] {
+  animation: dialog-fade 120ms ease-in reverse both;
 }
 
 .quiet-label {
@@ -246,6 +282,26 @@ textarea:focus-visible {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes dialog-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-panel {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
