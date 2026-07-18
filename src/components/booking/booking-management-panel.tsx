@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, CalendarDays, Clock3, Loader2, MapPin, RotateCw, X } from "lucide-react";
 import type { ManagedBookingView } from "@/lib/booking-management";
 import { readJsonResponse } from "@/lib/client-http";
+import { saveBookingToken } from "@/lib/saved-bookings";
 import { StatusBadge } from "@/components/status-badge";
 
 type ManageResponse = {
@@ -49,6 +50,11 @@ export function BookingManagementPanel({ token }: { token: string }) {
         const body = await readJsonResponse<ManageResponse>(response, "無法讀取報名");
         if (!response.ok) throw new Error(body.error ?? "無法使用此管理連結");
         setBooking(body.booking);
+        try {
+          saveBookingToken(window.localStorage, token);
+        } catch {
+          // The management page remains usable when browser storage is unavailable.
+        }
       })
       .catch((requestError) => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;

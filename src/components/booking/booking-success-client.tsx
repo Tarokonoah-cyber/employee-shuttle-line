@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ManagedBookingView } from "@/lib/booking-management";
 import { readJsonResponse } from "@/lib/client-http";
+import { saveBookingToken } from "@/lib/saved-bookings";
 import { SuccessReceipt } from "./success-receipt";
 
 type BookingResponse = {
@@ -45,6 +46,11 @@ export function BookingSuccessClient({ token }: { token: string }) {
         const body = await readJsonResponse<BookingResponse>(response, "無法讀取報名結果");
         if (!response.ok) throw new Error(body.error ?? "無法讀取報名結果");
         setData(body);
+        try {
+          saveBookingToken(window.localStorage, token);
+        } catch {
+          // Private browsing or browser policy may disable storage; the original management link still works.
+        }
       })
       .catch((requestError) => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
