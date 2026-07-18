@@ -24,6 +24,21 @@ type ScheduleStatusCount = {
 
 type Tx = Prisma.TransactionClient;
 
+export function rememberedLineProfileData(
+  input: { employeeName: string; department: string; employeeNo?: string | null; phone?: string | null },
+  pickupPoint: string,
+  now = new Date(),
+) {
+  return {
+    employeeName: input.employeeName.trim(),
+    department: input.department.trim(),
+    employeeNo: input.employeeNo?.trim() || null,
+    phone: input.phone?.trim() || null,
+    defaultPickupLocation: pickupPoint,
+    lastUsedAt: now,
+  };
+}
+
 export class BusinessError extends Error {
   status: number;
 
@@ -53,6 +68,7 @@ function bookingAuditSnapshot(booking: Booking) {
     cancellationSource: booking.cancellationSource,
     promotedAt: booking.promotedAt,
     hasManagementToken: Boolean(booking.managementTokenHash),
+    hasLineProfile: Boolean(booking.lineProfileId),
   };
 }
 
@@ -150,6 +166,7 @@ async function createBookingInTransaction(
     note?: string | null;
     createdBy: "employee" | "admin";
     adminOverride?: boolean;
+    lineProfileId?: string | null;
   },
 ) {
   await tx.$queryRaw`SELECT id FROM shuttle_schedules WHERE id = ${input.scheduleId} FOR UPDATE`;
@@ -171,7 +188,12 @@ async function createBookingInTransaction(
     throw new BusinessError("此車班已超過報名截止時間");
   }
 
-  const identityKey = buildIdentityKey(input);
+  if (input.lineProfileId) {
+    const profile = await tx.lineUserProfile.findUnique({ where: { id: input.lineProfileId }, select: { id: true } });
+    if (!profile) throw new BusinessError("LINE 登入狀態已失效，請重新從官方帳號開啟", 401);
+  }
+
+  const identityKey = input.lineProfileId ? `line:${input.lineProfileId}` : buildIdentityKey(input);
   const duplicate = await tx.booking.findFirst({
     where: {
       scheduleId: input.scheduleId,
@@ -218,6 +240,7 @@ async function createBookingInTransaction(
         adminOverride,
         managementTokenHash: hashManagementToken(managementToken),
         managementTokenCreatedAt: new Date(),
+        lineProfileId: input.lineProfileId ?? null,
       },
       include: { schedule: true },
     })
@@ -228,6 +251,13 @@ async function createBookingInTransaction(
 
       throw error;
     });
+
+  if (input.lineProfileId) {
+    await tx.lineUserProfile.update({
+      where: { id: input.lineProfileId },
+      data: rememberedLineProfileData(input, schedule.pickupPoint),
+    });
+  }
 
   await logAudit(tx, {
     action: adminOverride ? "booking.force_create" : "booking.create",
@@ -253,11 +283,11 @@ export async function createEmployeeBooking(input: {
   employeeNo?: string | null;
   phone?: string | null;
   note?: string | null;
-}) {
+}, options: { lineProfileId?: string | null } = {}) {
   const prisma = getPrisma();
   try {
     return await prisma.$transaction(
-      (tx) => createBookingInTransaction(tx, { ...input, createdBy: "employee" }),
+      (tx) => createBookingInTransaction(tx, { ...input, createdBy: "employee", lineProfileId: options.lineProfileId }),
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
   } catch (error) {
@@ -293,6 +323,7 @@ export async function cancelBooking(
     source?: "employee" | "admin" | "system";
     enforceDeadline?: boolean;
     expectedTokenHash?: string;
+    expectedLineProfileId?: string;
     now?: Date;
   } = {},
 ) {
@@ -311,6 +342,9 @@ export async function cancelBooking(
           if (!booking) throw new BusinessError("找不到預約", 404);
           if (options.expectedTokenHash && booking.managementTokenHash !== options.expectedTokenHash) {
             throw new BusinessError("無法使用此管理連結", 404);
+          }
+          if (options.expectedLineProfileId && booking.lineProfileId !== options.expectedLineProfileId) {
+            throw new BusinessError("找不到你的報名", 404);
           }
           if (booking.status === "cancelled") return { cancelled: booking, promoted: null, alreadyCancelled: true };
 

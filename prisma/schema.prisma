@@ -75,11 +75,33 @@ model Booking {
   promotedAt       DateTime?          @map("promoted_at")
   managementTokenHash String?         @unique @map("management_token_hash")
   managementTokenCreatedAt DateTime?  @map("management_token_created_at")
+  lineProfileId    String?            @map("line_profile_id")
+  lineProfile      LineUserProfile?   @relation(fields: [lineProfileId], references: [id], onDelete: SetNull)
   notificationLogs NotificationLog[]
 
   @@index([scheduleId, status])
   @@index([identityKey])
+  @@index([lineProfileId])
   @@map("bookings")
+}
+
+model LineUserProfile {
+  id                    String    @id @default(cuid())
+  lineUserId            String    @unique @map("line_user_id")
+  lineDisplayName       String?   @map("line_display_name")
+  linePictureUrl        String?   @map("line_picture_url")
+  employeeName          String?   @map("employee_name")
+  employeeNo            String?   @map("employee_no")
+  department            String?
+  phone                 String?
+  defaultPickupLocation String?   @map("default_pickup_location")
+  lastUsedAt            DateTime  @default(now()) @map("last_used_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  bookings              Booking[]
+
+  @@index([lastUsedAt])
+  @@map("line_user_profiles")
 }
 
 model AuditLog {

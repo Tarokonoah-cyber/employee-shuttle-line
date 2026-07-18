@@ -12,6 +12,7 @@ import {
   Menu,
   Route,
   X,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -35,7 +36,10 @@ const navigation = [
   },
   {
     label: "系統",
-    items: [{ href: "/admin/audit-logs", label: "操作紀錄", icon: FileClock }],
+    items: [
+      { href: "/admin/line-users", label: "LINE 使用者", icon: UsersRound },
+      { href: "/admin/audit-logs", label: "操作紀錄", icon: FileClock },
+    ],
   },
 ];
 

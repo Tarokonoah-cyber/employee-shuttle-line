@@ -40,14 +40,19 @@ function childUrl(base: URL, pathname: string) {
   return new URL(pathname, `${base.origin}/`).toString();
 }
 
+function liffUrl(liffId: string | undefined, view?: "my-bookings") {
+  const value = liffId?.trim();
+  if (!value || !/^\d+-[A-Za-z0-9]+$/.test(value)) throw new Error("NEXT_PUBLIC_LINE_LIFF_ID 未設定或格式不正確");
+  const url = new URL(`https://liff.line.me/${value}`);
+  if (view) url.searchParams.set("view", view);
+  return url.toString();
+}
+
 export function resolveLineRichMenuUrls(env: Environment) {
   const base = productionUrl(env.APP_BASE_URL, "APP_BASE_URL");
   return {
-    shuttle: productionUrl(env.LINE_SHUTTLE_URL || childUrl(base, "/"), "LINE_SHUTTLE_URL").toString(),
-    myShuttle: productionUrl(
-      env.LINE_MY_SHUTTLE_URL || childUrl(base, "/line/my-bookings"),
-      "LINE_MY_SHUTTLE_URL",
-    ).toString(),
+    shuttle: productionUrl(liffUrl(env.NEXT_PUBLIC_LINE_LIFF_ID), "LIFF 員工車入口").toString(),
+    myShuttle: productionUrl(liffUrl(env.NEXT_PUBLIC_LINE_LIFF_ID, "my-bookings"), "LIFF 我的員工車報名").toString(),
     help: productionUrl(env.LINE_HELP_URL || childUrl(base, "/line/help"), "LINE_HELP_URL").toString(),
     admin: productionUrl(env.LINE_ADMIN_URL || childUrl(base, "/admin"), "LINE_ADMIN_URL").toString(),
   };

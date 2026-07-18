@@ -8,6 +8,12 @@ const optionalText = z
   .nullable()
   .transform((value) => value || null);
 
+const optionalLimitedText = (max: number) => z.string().trim().max(max).optional().nullable().transform((value) => value || null);
+const optionalPhone = z.string().trim().max(30).refine(
+  (value) => !value || /^[0-9+()\-\s]{7,30}$/.test(value),
+  "手機格式不正確",
+).optional().nullable().transform((value) => value || null);
+
 const departureTimeInput = z
   .string()
   .trim()
@@ -23,11 +29,11 @@ const departureTimeInput = z
 
 export const bookingInputSchema = z.object({
   scheduleId: z.string().min(1, "請選擇車班"),
-  employeeName: z.string().trim().min(1, "請填寫姓名"),
-  department: z.string().trim().min(1, "請填寫部門"),
-  employeeNo: optionalText,
-  phone: optionalText,
-  note: optionalText,
+  employeeName: z.string().trim().min(1, "請填寫姓名").max(80, "姓名過長"),
+  department: z.string().trim().min(1, "請填寫部門").max(80, "部門名稱過長"),
+  employeeNo: optionalLimitedText(50),
+  phone: optionalPhone,
+  note: optionalLimitedText(500),
 });
 
 export const adminBookingInputSchema = bookingInputSchema.extend({

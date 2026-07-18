@@ -44,6 +44,14 @@ type Booking = {
   schedule: Schedule;
   hasManagementToken: boolean;
   managementTokenCreatedAt?: string | null;
+  lineProfile?: {
+    lineDisplayName: string | null;
+    maskedLineUserId: string;
+    employeeName: string | null;
+    employeeNo: string | null;
+    department: string | null;
+    phone: string | null;
+  } | null;
 };
 
 type Notice = { text: string; tone: "info" | "success" | "error" };
@@ -320,7 +328,7 @@ function BookingsContent() {
                 <tbody>
                   {bookings.map((booking) => (
                     <tr key={booking.id}>
-                      <td><strong>{booking.employeeName}</strong><br /><span className="font-mono text-xs text-stone-500">{booking.bookingCode}</span></td>
+                      <td><strong>{booking.employeeName}</strong><br /><span className="font-mono text-xs text-stone-500">{booking.bookingCode}</span>{booking.lineProfile && <><br /><span className="status-chip status-chip-success mt-1">LINE 已綁定</span></>}</td>
                       <td><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}<br /><span className="text-xs text-stone-600">{booking.schedule.pickupPoint}</span></td>
                       <td><div className="flex flex-wrap gap-1"><StatusBadge value={booking.status} />{booking.adminOverride && <StatusBadge value="overbooked" />}</div></td>
                       <td><span className="text-sm">{booking.department}</span><br /><span className="text-xs text-stone-600">{booking.employeeNo ?? "無員編"} · {booking.phone ?? "無手機"}</span></td>
@@ -339,6 +347,7 @@ function BookingsContent() {
                 </div>
                 <p className="mt-3 text-sm"><strong>{booking.schedule.departureTime}</strong> {booking.schedule.routeName}</p>
                 <p className="mt-1 font-mono text-xs text-stone-500">{booking.bookingCode}</p>
+                {booking.lineProfile && <span className="status-chip status-chip-success mt-2">LINE 已綁定</span>}
                 <Button type="button" className="mt-3 w-full" onClick={() => openBooking(booking)}>管理預約</Button>
               </article>
             ))}
@@ -397,8 +406,18 @@ function BookingsContent() {
                   ["員編／手機", `${selected.employeeNo ?? "未填"} · ${selected.phone ?? "未填"}`],
                   ["車班", `${selected.schedule.serviceDate.slice(0, 10)} ${selected.schedule.departureTime} ${selected.schedule.routeName}`],
                   ["管理連結", selected.hasManagementToken ? "可用" : "尚未建立"],
+                  ["LINE 綁定", selected.lineProfile ? `${selected.lineProfile.lineDisplayName ?? "未提供名稱"} · ${selected.lineProfile.maskedLineUserId}` : "未綁定"],
                 ].map(([label, value]) => <div key={label} className="bg-surface p-3"><dt className="text-xs text-stone-500">{label}</dt><dd className="mt-1 text-sm font-semibold">{value}</dd></div>)}
               </dl>
+              {selected.lineProfile && (
+                <div className="panel p-4">
+                  <p className="text-xs font-semibold text-stone-500">LINE 記憶的員工資料</p>
+                  <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                    <div><dt className="text-stone-500">姓名／部門</dt><dd className="mt-1 font-semibold">{selected.lineProfile.employeeName ?? "未填"} · {selected.lineProfile.department ?? "未填"}</dd></div>
+                    <div><dt className="text-stone-500">員編／手機</dt><dd className="mt-1 font-semibold">{selected.lineProfile.employeeNo ?? "未填"} · {selected.lineProfile.phone ?? "未填"}</dd></div>
+                  </dl>
+                </div>
+              )}
               {selected.note && <div className="panel p-4"><p className="text-xs font-semibold text-stone-500">備註</p><p className="mt-2 text-sm leading-6">{selected.note}</p></div>}
 
               <section>

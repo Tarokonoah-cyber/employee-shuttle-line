@@ -5,6 +5,7 @@ import { parseServiceDate } from "@/lib/dates";
 import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 import { adminBookingInputSchema } from "@/lib/schemas";
+import { maskLineUserId } from "@/lib/line-profile";
 
 export async function GET(request: Request) {
   const auth = await requireAdminApi();
@@ -27,21 +28,31 @@ export async function GET(request: Request) {
       { employeeNo: { contains: keyword, mode: "insensitive" } },
       { phone: { contains: keyword, mode: "insensitive" } },
       { bookingCode: { contains: keyword, mode: "insensitive" } },
+      { lineProfile: { is: { lineDisplayName: { contains: keyword, mode: "insensitive" } } } },
     ];
   }
 
   const prisma = getPrisma();
   const bookings = await prisma.booking.findMany({
     where,
-    include: { schedule: true },
+    include: { schedule: true, lineProfile: true },
     orderBy: [{ schedule: { serviceDate: "asc" } }, { schedule: { departureTime: "asc" } }, { createdAt: "asc" }],
   });
 
   return NextResponse.json({
-    bookings: bookings.map(({ managementTokenHash, managementTokenCreatedAt, ...booking }) => ({
+    bookings: bookings.map(({ managementTokenHash, managementTokenCreatedAt, lineProfile, ...booking }) => ({
       ...booking,
+      lineProfileId: undefined,
       hasManagementToken: Boolean(managementTokenHash),
       managementTokenCreatedAt,
+      lineProfile: lineProfile ? {
+        lineDisplayName: lineProfile.lineDisplayName,
+        maskedLineUserId: maskLineUserId(lineProfile.lineUserId),
+        employeeName: lineProfile.employeeName,
+        employeeNo: lineProfile.employeeNo,
+        department: lineProfile.department,
+        phone: lineProfile.phone,
+      } : null,
     })),
   });
 }

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ArrowRight, BusFront, CircleHelp, ClipboardList, ShieldCheck, Wrench } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -16,21 +15,24 @@ const guides = [
   {
     icon: BusFront,
     title: "員工車登記",
-    text: "選擇日期與班次後填寫資料。送出成功請保留管理連結；候補順位、取消期限與自動遞補規則維持不變。",
+    text: "從 LINE Rich Menu 開啟 LIFF，完成身分驗證後選擇日期與班次。第一次送出會記住員工資料，下次自動帶入；候補與取消規則維持不變。",
   },
   {
     icon: ClipboardList,
     title: "我的服務紀錄",
-    text: "「我的報修」由 LINE 帳號查詢；「我的員工車報名」則顯示保存在目前 LINE 瀏覽器的管理連結，也可手動匯入舊連結。",
+    text: "「我的報修」與「我的員工車報名」都依目前 LINE 帳號查詢。LIFF 上線前的舊員工車報名仍需使用原管理連結。",
   },
   {
     icon: ShieldCheck,
     title: "連結安全",
-    text: "報修與員工車管理連結都包含個人專用 token，請勿轉傳。更換裝置或清除瀏覽器資料後，請使用原通知中的連結重新開啟。",
+    text: "系統只信任 LINE 平台驗證過的身分，不會接受網址或表單偽造 userId。舊管理連結仍包含個人專用 token，請勿轉傳。",
   },
 ];
 
 export default function LineHelpPage() {
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim();
+  const bookingUrl = liffId ? `https://liff.line.me/${liffId}` : "/liff";
+  const myBookingsUrl = liffId ? `https://liff.line.me/${liffId}?view=my-bookings` : "/liff?view=my-bookings";
   return (
     <main className="min-h-screen bg-background px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-2xl">
@@ -52,8 +54,8 @@ export default function LineHelpPage() {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link className="btn btn-primary min-h-11" href="/">員工車登記 <ArrowRight size={16} aria-hidden="true" /></Link>
-          <Link className="btn btn-secondary min-h-11" href="/line/my-bookings">我的員工車報名</Link>
+          <a className="btn btn-primary min-h-11" href={bookingUrl}>員工車登記 <ArrowRight size={16} aria-hidden="true" /></a>
+          <a className="btn btn-secondary min-h-11" href={myBookingsUrl}>我的員工車報名</a>
         </div>
       </div>
     </main>

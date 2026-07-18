@@ -21,6 +21,12 @@ async function main() {
   const imageArgument = process.argv.find((argument) => argument.startsWith("--image="));
   const imagePath = resolve(imageArgument?.slice("--image=".length) || "public/line/rich-menu-taroko.png");
   const menu = buildLineRichMenu(process.env);
+  const employeeEntryUris = menu.areas.flatMap(({ action }) =>
+    action.type === "uri" && (action.label === "員工車登記" || action.label === "我的員工車報名") ? [action.uri] : [],
+  );
+  if (employeeEntryUris.length !== 2 || employeeEntryUris.some((uri) => new URL(uri).hostname !== "liff.line.me")) {
+    throw new Error("員工車 Rich Menu 必須使用正式 https://liff.line.me/{LIFF_ID} 入口");
+  }
   const imageInfo = await stat(imagePath);
 
   if (imageInfo.size > 1_000_000) throw new Error("Rich Menu PNG 超過 LINE 1 MB 上限");

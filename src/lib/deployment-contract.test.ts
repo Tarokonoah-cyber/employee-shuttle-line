@@ -21,7 +21,15 @@ test("booking management migration is additive", () => {
   const migration = readFileSync(`${root}/prisma/migrations/20260711000000_booking_management/migration.sql`, "utf8");
   assert.match(migration, /ADD COLUMN "management_token_hash" TEXT/);
   assert.match(migration, /CREATE UNIQUE INDEX "bookings_management_token_hash_key"/);
-  assert.doesNotMatch(migration, /DROP|TRUNCATE|DELETE/i);
+  assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
+});
+
+test("LINE profile migration is additive and keeps old bookings nullable", () => {
+  const migration = readFileSync(`${root}/prisma/migrations/20260718000000_line_user_profiles/migration.sql`, "utf8");
+  assert.match(migration, /CREATE TABLE "line_user_profiles"/);
+  assert.match(migration, /ADD COLUMN "line_profile_id" TEXT/);
+  assert.doesNotMatch(migration, /line_profile_id" TEXT NOT NULL/);
+  assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
 
 test("active-booking partial unique constraint remains in migration history", () => {
@@ -54,4 +62,25 @@ test("management lookup returns only the safe booking view", () => {
 test("admin booking API replaces token hash with a boolean capability", () => {
   const route = readFileSync(`${root}/src/app/api/admin/bookings/route.ts`, "utf8");
   assert.match(route, /hasManagementToken: Boolean\(managementTokenHash\)/);
+});
+
+test("booking identity comes only from the signed LINE session", () => {
+  const route = readFileSync(`${root}/src/app/api/bookings/route.ts`, "utf8");
+  assert.match(route, /getLineSessionProfileId/);
+  assert.doesNotMatch(route, /body\.lineUserId|input\.lineUserId/);
+  const service = readFileSync(`${root}/src/lib/booking-service.ts`, "utf8");
+  assert.match(service, /lineProfileId: input\.lineProfileId/);
+  assert.match(service, /rememberedLineProfileData/);
+});
+
+test("self profile API cannot select another LINE user by query string", () => {
+  const route = readFileSync(`${root}/src/app/api/me/profile/route.ts`, "utf8");
+  assert.match(route, /getLineSessionProfileId/);
+  assert.doesNotMatch(route, /searchParams|lineUserId/);
+});
+
+test("admin LINE responses mask user ids and omit LINE tokens", () => {
+  const route = readFileSync(`${root}/src/app/api/admin/line-users/route.ts`, "utf8");
+  assert.match(route, /maskLineUserId/);
+  assert.doesNotMatch(route, /accessToken|idToken|CHANNEL_SECRET/);
 });

@@ -88,7 +88,7 @@ export function statusLineText(view: ManagedBookingView, manageUrl: string) {
   ].join("\n");
 }
 
-async function toManagedView(booking: BookingWithSchedule, now = new Date()): Promise<ManagedBookingView> {
+export async function toManagedView(booking: BookingWithSchedule, now = new Date()): Promise<ManagedBookingView> {
   const prisma = getPrisma();
   const deadline = bookingDeadline(booking.schedule.serviceDate, booking.schedule.departureTime);
   let waitlistPosition: number | null = null;

@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildLineRichMenu, resolveLineRichMenuUrls } from "./line-rich-menu";
 
-const baseEnv = { APP_BASE_URL: "https://employee-shuttle-line-production.up.railway.app" };
+const baseEnv = {
+  APP_BASE_URL: "https://employee-shuttle-line-production.up.railway.app",
+  NEXT_PUBLIC_LINE_LIFF_ID: "1234567890-AbCdEfGh",
+};
 
 test("rich menu covers the 2500x1686 image with six aligned areas", () => {
   const menu = buildLineRichMenu(baseEnv);
@@ -18,18 +21,22 @@ test("repair actions preserve the existing webhook commands", () => {
   assert.deepEqual(menu.areas[2].action, { type: "message", label: "我的報修", text: "我的報修" });
 });
 
-test("shuttle links default to the Railway application routes", () => {
+test("shuttle links use verified LIFF entry points", () => {
   assert.deepEqual(resolveLineRichMenuUrls(baseEnv), {
-    shuttle: "https://employee-shuttle-line-production.up.railway.app/",
-    myShuttle: "https://employee-shuttle-line-production.up.railway.app/line/my-bookings",
+    shuttle: "https://liff.line.me/1234567890-AbCdEfGh",
+    myShuttle: "https://liff.line.me/1234567890-AbCdEfGh?view=my-bookings",
     help: "https://employee-shuttle-line-production.up.railway.app/line/help",
     admin: "https://employee-shuttle-line-production.up.railway.app/admin",
   });
 });
 
+test("rich menu refuses to fall back to an unverified general URL", () => {
+  assert.throws(() => buildLineRichMenu({ APP_BASE_URL: baseEnv.APP_BASE_URL }), /NEXT_PUBLIC_LINE_LIFF_ID/);
+});
+
 test("explicit URL overrides must be concrete HTTPS URLs", () => {
   assert.throws(
-    () => resolveLineRichMenuUrls({ ...baseEnv, LINE_SHUTTLE_URL: "https://example.com/?token={lineToken}" }),
+    () => resolveLineRichMenuUrls({ ...baseEnv, LINE_HELP_URL: "https://example.com/?token={lineToken}" }),
     /placeholder/,
   );
   assert.throws(() => resolveLineRichMenuUrls({ ...baseEnv, LINE_HELP_URL: "http://example.com/help" }), /HTTPS/);

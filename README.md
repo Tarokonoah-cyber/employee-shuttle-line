@@ -13,6 +13,10 @@ ADMIN_SESSION_SECRET=<long random value>
 APP_BASE_URL=https://employee-shuttle-line-production.up.railway.app
 NEXT_PUBLIC_APP_NAME=員工車上車登記系統
 BOOKING_CUTOFF_MINUTES=60
+NEXT_PUBLIC_LINE_LIFF_ID=<LIFF ID>
+LINE_LOGIN_CHANNEL_ID=<LINE Login channel ID>
+LINE_SESSION_SECRET=<至少 32 字元的獨立隨機值>
+LINE_IDENTITY_REQUIRED=true
 ```
 
 `DATABASE_URL` 必須使用 Railway PostgreSQL reference variable，不要將實際連線字串提交至 repository。Prisma runtime 與 migration 均使用同一個 Railway `DATABASE_URL`，不需要 `DIRECT_URL`。
@@ -103,20 +107,42 @@ Rich Menu 圖為 `public/line/rich-menu-taroko.png`（2500 × 1686、2 欄 × 3 
 | 位置 | 按鈕 | LINE 動作 | 最終入口 |
 | --- | --- | --- | --- |
 | 左上 | 工程／IT 報修 | Message：`我要報修` | 既有報修 webhook 依 LINE 使用者產生 `/repair?token=...&view=repair` |
-| 右上 | 員工車登記 | URI | `https://employee-shuttle-line-production.up.railway.app/` |
+| 右上 | 員工車登記 | URI | `https://liff.line.me/<LIFF_ID>` |
 | 左中 | 我的報修 | Message：`我的報修` | 既有報修 webhook 依 LINE 使用者產生 `/repair?token=...&view=mine` |
-| 右中 | 我的員工車報名 | URI | `https://employee-shuttle-line-production.up.railway.app/line/my-bookings` |
+| 右中 | 我的員工車報名 | URI | `https://liff.line.me/<LIFF_ID>?view=my-bookings` |
 | 左下 | 使用說明 | URI | `https://employee-shuttle-line-production.up.railway.app/line/help` |
 | 右下 | 後台入口 | URI | `https://employee-shuttle-line-production.up.railway.app/admin` |
 
-LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 `{lineToken}` 動態替換。因此目前員工車登記直接使用既有可運作的 `/` 流程，不可在 Rich Menu 寫入 literal placeholder。若日後既有 webhook／LIFF 增加能安全簽發員工車 token 的固定 gateway URL，再透過 `LINE_SHUTTLE_URL` 覆寫；不得把 LINE access token 或使用者 token 寫進圖檔、程式碼或 repository。
+LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 `{lineToken}` 動態替換。員工車入口必須使用正式 LIFF URL；LIFF SDK 取得 ID token 後，後端呼叫 LINE Login `POST /oauth2/v2.1/verify`，核對 `LINE_LOGIN_CHANNEL_ID` 與 token 有效期，再建立本系統的簽章 session。前端 profile、query string 或自行填入的 `lineUserId` 都不可信任。
 
-「我的員工車報名」不更動資料庫，也不建立可猜測的帳號查詢。新報名成功後，管理 token 會保存在同一個 LINE 內建瀏覽器的 local storage，頁面再呼叫既有 `/api/bookings/manage/<token>`。舊報名可貼上原管理連結匯入；換手機或清除 LINE 瀏覽器資料後仍以原管理連結為準。
+「我的員工車報名」使用相同 LIFF 身分 session，只查詢 `line_profile_id` 屬於目前 LINE 使用者的報名，並可在原截止規則內取消。舊報名的 `line_profile_id` 維持 `NULL`，不會失效或被自動認領，仍可使用原 `/booking/manage/<token>` 管理連結；既有 `/line/my-bookings` local-storage 相容頁也保留。
+
+### 建立 LINE Login 與 LIFF App
+
+1. 到 LINE Developers Console 建立或選擇 **LINE Login channel**。可與既有 Messaging API channel 放在同一 Provider 下，不需要新增第三個 LINE 官方帳號。
+2. 在該 LINE Login channel 的 LIFF 分頁新增 LIFF App：
+   - Endpoint URL：`https://employee-shuttle-line-production.up.railway.app/liff`
+   - Size：`Full` 或 `Tall`（建議 `Full`）
+   - Scopes：勾選 `openid`、`profile`
+3. 取得 LIFF ID 與 LINE Login channel ID。不要把 channel secret、ID token 或 access token寫進 repository。
+4. Railway Web Service 設定並重新部署：
+
+   ```env
+   APP_BASE_URL=https://employee-shuttle-line-production.up.railway.app
+   NEXT_PUBLIC_LINE_LIFF_ID=<LIFF ID>
+   LINE_LOGIN_CHANNEL_ID=<LINE Login channel ID>
+   LINE_SESSION_SECRET=<至少 32 字元的獨立隨機值>
+   LINE_IDENTITY_REQUIRED=true
+   ```
+
+`NEXT_PUBLIC_LINE_LIFF_ID` 會進入前端 bundle，屬於公開識別碼；`LINE_LOGIN_CHANNEL_ID` 只用於後端驗證 audience；`LINE_SESSION_SECRET` 只存在 Railway server env，用來簽署 `httpOnly`、`sameSite=lax`、production `secure` 的 7 天 session cookie。系統不需要也不儲存 LINE Login channel secret。
+
+部署後使用手機 LINE 點 Rich Menu 驗證：第一次進入顯示「正在辨識 LINE 身分」，填寫姓名、手機、員編與部門後送出；再次從同一 LINE 帳號開啟，欄位應自動帶入。一般瀏覽器直接開 `/` 或 `/liff` 不可偽造 LINE 身分，會提示從官方帳號開啟。
 
 ### 用 Messaging API 建立 Rich Menu
 
 1. 確認使用的是**現有報修 LINE 官方帳號**的 Messaging API channel access token。
-2. 在本機或受控的部署環境設定 `APP_BASE_URL` 與 `LINE_CHANNEL_ACCESS_TOKEN`；不要把真實值寫入 `.env.example` 或 commit。
+2. 在本機或受控的部署環境設定 `APP_BASE_URL`、`NEXT_PUBLIC_LINE_LIFF_ID` 與現有官方帳號的 `LINE_CHANNEL_ACCESS_TOKEN`；不要把真實值寫入 `.env.example` 或 commit。
 3. 先執行 dry run，檢查六格動作、圖片大小與 URL：
 
    ```bash
@@ -134,16 +160,29 @@ LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 
 可選 URI 覆寫（全部必須是完整 HTTPS URL）：
 
 ```env
-LINE_SHUTTLE_URL=
-LINE_MY_SHUTTLE_URL=
 LINE_HELP_URL=
 LINE_ADMIN_URL=
 ```
 
+員工車兩個入口不可用一般 URI 覆寫，建立工具會強制使用 `NEXT_PUBLIC_LINE_LIFF_ID` 產生的 `liff.line.me` 網址。
+
 ### LINE 環境變數放置位置
 
-- Railway 員工車 runtime：Rich Menu 是靜態 URI，本身不需要 `LINE_CHANNEL_SECRET` 或 `LINE_CHANNEL_ACCESS_TOKEN`。只有要從 Railway shell 執行一次建立工具時，才暫時設定 `LINE_CHANNEL_ACCESS_TOKEN`；完成後可移除。
+- Railway 員工車 runtime：需要 `NEXT_PUBLIC_LINE_LIFF_ID`、`LINE_LOGIN_CHANNEL_ID`、`LINE_SESSION_SECRET`、`APP_BASE_URL`，正式啟用時設定 `LINE_IDENTITY_REQUIRED=true`。只有要從 Railway shell 執行一次 Rich Menu 建立工具時，才暫時設定 Messaging API 的 `LINE_CHANNEL_ACCESS_TOKEN`；完成後可移除。
 - Vercel 既有報修／webhook 專案：保留既有 `LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`，由 webhook 驗證簽章、回覆訊息與產生個人報修連結。
 - `LINE_CHANNEL_SECRET` 不應複製到本員工車專案，因為本專案沒有 webhook；所有 secret 僅從環境變數讀取，不可硬編碼。
 
-官方參考：[Rich Menu overview](https://developers.line.biz/en/docs/messaging-api/rich-menus-overview/)、[Use rich menus](https://developers.line.biz/en/docs/messaging-api/using-rich-menus/)、[Messaging API actions](https://developers.line.biz/en/docs/messaging-api/actions/)。
+### 資料庫與相容性
+
+Migration `20260718000000_line_user_profiles` 只新增 `line_user_profiles`、nullable `bookings.line_profile_id`、索引與 `ON DELETE SET NULL` 外鍵。既有 booking 不更新、不刪除且仍可在前後台顯示。新 LIFF 報名會在同一個 Serializable transaction 綁定 profile，並記住姓名、手機、員編、部門、常用上車點與最後使用時間；ID token 與 access token 永不寫入資料庫。
+
+新增 API：
+
+- `POST /api/liff/session`：接收 ID token，交由 LINE 平台驗證並建立安全 session。
+- `GET /api/me/profile`：讀取本人記憶資料。
+- `PATCH /api/me/profile`：更新本人的員工資料，無法指定其他 userId。
+- `GET /api/me/bookings`：列出本人已綁定報名。
+- `PATCH /api/me/bookings/:id/cancel`：依既有截止與候補規則取消本人的報名。
+- `GET /api/admin/line-users`：管理員查看遮蔽 userId、記憶資料、最後使用時間與報名次數。
+
+官方參考：[Using user data in LIFF apps and servers](https://developers.line.biz/en/docs/liff/using-user-profile/)、[Verify ID tokens](https://developers.line.biz/en/docs/line-login/verify-id-token/)、[LIFF API reference](https://developers.line.biz/en/reference/liff/)、[Opening a LIFF app](https://developers.line.biz/en/docs/liff/opening-liff-app/)、[Use rich menus](https://developers.line.biz/en/docs/messaging-api/using-rich-menus/)。

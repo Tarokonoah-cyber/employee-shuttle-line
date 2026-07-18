@@ -47,6 +47,7 @@ function latestBooking(input: Partial<Booking> = {}) {
     promotedAt: input.promotedAt ?? null,
     managementTokenHash: input.managementTokenHash ?? null,
     managementTokenCreatedAt: input.managementTokenCreatedAt ?? null,
+    lineProfileId: input.lineProfileId ?? null,
   } satisfies Booking;
 }
 

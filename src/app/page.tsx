@@ -14,8 +14,10 @@ import { ShuttleCard } from "@/components/booking/shuttle-card";
 import type { Schedule } from "@/components/booking/types";
 import { addDaysToDateInput, tomorrowDateInput } from "@/lib/dates";
 import { readJsonResponse } from "@/lib/client-http";
+import type { LineProfileView } from "@/lib/line-profile-view";
+import Link from "next/link";
 
-export default function Home() {
+export function BookingPortal({ profile = null }: { profile?: LineProfileView | null }) {
   const router = useRouter();
   const [date, setDate] = useState(tomorrowDateInput());
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -163,6 +165,7 @@ export default function Home() {
             error={formError}
             submitting={submitting}
             onSubmit={submit}
+            profile={profile}
           />
         </aside>
       </div>
@@ -181,10 +184,27 @@ export default function Home() {
               submitting={submitting}
               onSubmit={submit}
               onClose={() => setFormOpen(false)}
+              profile={profile}
             />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+    </main>
+  );
+}
+
+export default function Home() {
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim();
+  if (!liffId) return <BookingPortal />;
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-5 py-12">
+      <section className="panel w-full max-w-md p-6 text-center">
+        <AlertCircle className="mx-auto text-primary" size={32} aria-hidden="true" />
+        <h1 className="mt-4 text-xl font-bold">請從 LINE 官方帳號開啟</h1>
+        <p className="mt-2 text-sm leading-6 text-stone-600">員工車登記需要驗證 LINE 身分，請回到「太魯閣員工服務台」點選員工車登記。</p>
+        <Link className="btn btn-primary mt-5" href={`https://liff.line.me/${encodeURIComponent(liffId)}`}>開啟 LINE 員工車登記</Link>
+      </section>
     </main>
   );
 }

@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { Clock3, Loader2, MapPin, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { Schedule } from "./types";
+import type { LineProfileView } from "@/lib/line-profile-view";
 
 type BookingFormPanelProps = {
   schedule: Schedule | null;
@@ -10,6 +11,7 @@ type BookingFormPanelProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   mode: "mobile" | "desktop";
   onClose?: () => void;
+  profile?: LineProfileView | null;
 };
 
 function FormField({
@@ -37,7 +39,7 @@ function FormField({
   );
 }
 
-export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, onClose }: BookingFormPanelProps) {
+export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, onClose, profile }: BookingFormPanelProps) {
   const [requiredErrors, setRequiredErrors] = useState({ employeeName: "", department: "" });
   const disabled = !schedule || submitting;
   const isWaitlist = Boolean(schedule?.isFull && schedule.waitlistEnabled);
@@ -118,12 +120,19 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
             </div>
           )}
 
+          {profile && (
+            <div className="rounded-[6px] border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm leading-6 text-emerald-900">
+              已驗證 LINE 身分{profile.lineDisplayName ? `：${profile.lineDisplayName}` : ""}。系統會記住本次資料，下次使用同一個 LINE 帳號開啟時自動帶入。
+            </div>
+          )}
+
           <FormField label="員工姓名" name={`${mode}-employeeName`} required>
             <input
               id={`${mode}-employeeName`}
               name="employeeName"
               className={clsx("field min-h-12", requiredErrors.employeeName && "border-red-400 bg-red-50")}
               autoComplete="name"
+              defaultValue={profile?.employeeName ?? ""}
               required
               disabled={disabled}
               aria-invalid={Boolean(requiredErrors.employeeName)}
@@ -141,6 +150,7 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
               id={`${mode}-department`}
               name="department"
               className={clsx("field min-h-12", requiredErrors.department && "border-red-400 bg-red-50")}
+              defaultValue={profile?.department ?? ""}
               required
               disabled={disabled}
               aria-invalid={Boolean(requiredErrors.department)}
@@ -154,7 +164,7 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
             )}
           </FormField>
           <FormField label="員工編號" name={`${mode}-employeeNo`} optional>
-            <input id={`${mode}-employeeNo`} name="employeeNo" className="field min-h-12" autoComplete="off" disabled={disabled} />
+            <input id={`${mode}-employeeNo`} name="employeeNo" className="field min-h-12" autoComplete="off" defaultValue={profile?.employeeNo ?? ""} disabled={disabled} />
           </FormField>
           <FormField label="手機" name={`${mode}-phone`} optional>
             <input
@@ -164,8 +174,19 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
               inputMode="tel"
               className="field min-h-12"
               autoComplete="tel"
+              defaultValue={profile?.phone ?? ""}
               disabled={disabled}
             />
+          </FormField>
+          <FormField label="上車點" name={`${mode}-pickupPoint`}>
+            <input
+              id={`${mode}-pickupPoint`}
+              className="field min-h-12 bg-stone-100"
+              value={schedule?.pickupPoint ?? profile?.defaultPickupLocation ?? "請先選擇車班"}
+              readOnly
+              aria-describedby={`${mode}-pickupPoint-help`}
+            />
+            <span id={`${mode}-pickupPoint-help`} className="mt-1.5 block text-xs leading-5 text-stone-500">上車點依所選車班設定，送出後會記為常用上車點。</span>
           </FormField>
           <FormField label="備註" name={`${mode}-note`} optional>
             <textarea id={`${mode}-note`} name="note" className="field min-h-20 resize-y" disabled={disabled} />
