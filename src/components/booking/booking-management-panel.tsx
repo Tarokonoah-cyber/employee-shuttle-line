@@ -4,7 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useState } from "react";
 import { AlertCircle, CalendarDays, Clock3, Loader2, MapPin, RotateCw, X } from "lucide-react";
 import type { ManagedBookingView } from "@/lib/booking-management";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { saveBookingToken } from "@/lib/saved-bookings";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -45,7 +45,7 @@ export function BookingManagementPanel({ token }: { token: string }) {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    fetch(`/api/bookings/manage/${encodeURIComponent(token)}`, { signal: controller.signal, cache: "no-store" })
+    fetchWithTimeout(`/api/bookings/manage/${encodeURIComponent(token)}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         const body = await readJsonResponse<ManageResponse>(response, "無法讀取報名");
         if (!response.ok) throw new Error(body.error ?? "無法使用此管理連結");
@@ -70,7 +70,7 @@ export function BookingManagementPanel({ token }: { token: string }) {
     setCanceling(true);
     setCancelError("");
     try {
-      const response = await fetch(`/api/bookings/manage/${encodeURIComponent(token)}/cancel`, { method: "PATCH" });
+      const response = await fetchWithTimeout(`/api/bookings/manage/${encodeURIComponent(token)}/cancel`, { method: "PATCH" });
       const body = await readJsonResponse<ManageResponse>(response, "取消失敗");
       if (!response.ok) throw new Error(body.error ?? "取消失敗");
       setBooking(body.booking);

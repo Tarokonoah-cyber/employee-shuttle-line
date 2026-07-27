@@ -17,6 +17,8 @@ NEXT_PUBLIC_LINE_LIFF_ID=<LIFF ID>
 LINE_LOGIN_CHANNEL_ID=<LINE Login channel ID>
 LINE_SESSION_SECRET=<至少 32 字元的獨立隨機值>
 LINE_IDENTITY_REQUIRED=true
+LINE_CHANNEL_ACCESS_TOKEN=<現有官方帳號的 Messaging API channel access token>
+LINE_GRO_TARGET_IDS=<GRO 個人 userId 或通知群組 groupId；多個以逗號分隔>
 ```
 
 `DATABASE_URL` 必須使用 Railway PostgreSQL reference variable，不要將實際連線字串提交至 repository。Prisma runtime 與 migration 均使用同一個 Railway `DATABASE_URL`，不需要 `DIRECT_URL`。
@@ -168,9 +170,19 @@ LINE_ADMIN_URL=
 
 ### LINE 環境變數放置位置
 
-- Railway 員工車 runtime：需要 `NEXT_PUBLIC_LINE_LIFF_ID`、`LINE_LOGIN_CHANNEL_ID`、`LINE_SESSION_SECRET`、`APP_BASE_URL`，正式啟用時設定 `LINE_IDENTITY_REQUIRED=true`。只有要從 Railway shell 執行一次 Rich Menu 建立工具時，才暫時設定 Messaging API 的 `LINE_CHANNEL_ACCESS_TOKEN`；完成後可移除。
+- Railway 員工車 runtime：需要 `NEXT_PUBLIC_LINE_LIFF_ID`、`LINE_LOGIN_CHANNEL_ID`、`LINE_SESSION_SECRET`、`APP_BASE_URL`，正式啟用時設定 `LINE_IDENTITY_REQUIRED=true`。自動推播還需要永久保存 `LINE_CHANNEL_ACCESS_TOKEN` 與 `LINE_GRO_TARGET_IDS`。`LINE_GRO_TARGET_IDS` 可放一個或多個 GRO 個人 `userId`、群組 `groupId` 或聊天室 `roomId`，多個值以逗號分隔。
 - Vercel 既有報修／webhook 專案：保留既有 `LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`，由 webhook 驗證簽章、回覆訊息與產生個人報修連結。
 - `LINE_CHANNEL_SECRET` 不應複製到本員工車專案，因為本專案沒有 webhook；所有 secret 僅從環境變數讀取，不可硬編碼。
+
+### 員工車 LINE 自動通知
+
+- USER 預約完成後，資料庫交易先完成並立即回應；GRO 推播在回應送出後執行，不會等待 LINE API 才顯示預約成功。
+- 管理員把班次由正常改為取消時，系統只在該次取消狀態轉換觸發通知，對當下仍為正取或候補且有驗證 LINE 身分的 USER 逐一推播。
+- LINE 推播使用既有官方帳號的 Messaging API，不新增 webhook，也不改動現有報修 webhook。LINE Login 與 Messaging API channel 必須位於同一 Provider，兩邊 userId 才能對應。
+- 每筆推播先寫入 `notification_logs`；傳送使用固定 retry key，暫時性錯誤最多重試三次，成功或失敗均會留下紀錄。USER 封鎖官方帳號時，LINE 可能回應成功但實際不送達。
+- 所有瀏覽器資料請求、表單送出與 LIFF 身分初始化都在 2.8 秒內結束 loading；超時會顯示可重試錯誤。LINE token 驗證的伺服器外部請求限制為 1.8 秒，LINE 推播限制為每次 2 秒且在回應後執行。
+
+GRO 個人通知只需把 LINE Developers Console「Your user ID」填入 `LINE_GRO_TARGET_IDS`。若改用群組，先讓官方帳號加入 GRO 通知群組，再由現有唯一 webhook 的群組事件取得 `source.groupId`；不要把 Railway 設成第二個 webhook URL。
 
 ### 資料庫與相容性
 

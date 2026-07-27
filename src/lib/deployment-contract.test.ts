@@ -84,3 +84,17 @@ test("admin LINE responses mask user ids and omit LINE tokens", () => {
   assert.match(route, /maskLineUserId/);
   assert.doesNotMatch(route, /accessToken|idToken|CHANNEL_SECRET/);
 });
+
+test("booking and schedule cancellation queue LINE work without blocking API responses", () => {
+  const bookingRoute = readFileSync(`${root}/src/app/api/bookings/route.ts`, "utf8");
+  const scheduleRoute = readFileSync(`${root}/src/app/api/admin/schedules/[id]/route.ts`, "utf8");
+  const notification = readFileSync(`${root}/src/lib/line-notification.ts`, "utf8");
+
+  assert.match(bookingRoute, /after\(\(\) => deliverQueuedLineNotifications/);
+  assert.match(scheduleRoute, /input\.cancelled && !oldValue\.cancelledAt/);
+  assert.match(scheduleRoute, /queueScheduleCancellationNotifications/);
+  assert.match(scheduleRoute, /FOR UPDATE/);
+  assert.match(notification, /LINE_CHANNEL_ACCESS_TOKEN/);
+  assert.match(notification, /LINE_GRO_TARGET_IDS/);
+  assert.doesNotMatch(notification, /Bearer [A-Za-z0-9_-]{20,}/);
+});

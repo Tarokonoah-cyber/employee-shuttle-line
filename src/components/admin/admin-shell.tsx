@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 const navigation = [
   {
@@ -49,7 +50,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   async function logout() {
-    await fetch("/api/admin/logout", { method: "POST" });
+    await fetchWithTimeout("/api/admin/logout", { method: "POST" });
     router.replace("/admin");
   }
 

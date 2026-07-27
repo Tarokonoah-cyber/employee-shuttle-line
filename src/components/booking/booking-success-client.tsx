@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ManagedBookingView } from "@/lib/booking-management";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { saveBookingToken } from "@/lib/saved-bookings";
 import { SuccessReceipt } from "./success-receipt";
 
@@ -41,7 +41,7 @@ export function BookingSuccessClient({ token }: { token: string }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/bookings/manage/${encodeURIComponent(token)}`, { signal: controller.signal, cache: "no-store" })
+    fetchWithTimeout(`/api/bookings/manage/${encodeURIComponent(token)}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         const body = await readJsonResponse<BookingResponse>(response, "無法讀取報名結果");
         if (!response.ok) throw new Error(body.error ?? "無法讀取報名結果");

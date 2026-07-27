@@ -2,9 +2,14 @@
 
 import Script from "next/script";
 import { AlertCircle, Loader2, ShieldCheck } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookingPortal } from "@/app/page";
-import { readJsonResponse } from "@/lib/client-http";
+import {
+  CLIENT_REQUEST_TIMEOUT_MS,
+  fetchWithTimeout,
+  readJsonResponse,
+  withClientDeadline,
+} from "@/lib/client-http";
 import type { LineProfileView } from "@/lib/line-profile-view";
 import { LineBookingsClient } from "./line-bookings-client";
 
@@ -34,13 +39,32 @@ function requestedView() {
 export function LiffEntryClient({ liffId }: { liffId: string }) {
   const [state, setState] = useState<EntryState>({ status: "loading" });
   const initialization = useRef<Promise<void> | null>(null);
+  const deadline = useRef<number | null>(null);
+
+  useEffect(() => {
+    deadline.current = Date.now() + CLIENT_REQUEST_TIMEOUT_MS;
+    const timer = window.setTimeout(() => {
+      setState((current) => current.status === "loading"
+        ? { status: "error", message: "LINE 身分驗證超過 3 秒，請關閉後從官方帳號重新開啟。" }
+        : current);
+    }, CLIENT_REQUEST_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   function initialize() {
     if (initialization.current) return;
     initialization.current = (async () => {
       const liff = window.liff;
       if (!liff) throw new Error("無法載入 LINE LIFF SDK");
-      await liff.init({ liffId });
+      const remainingTime = () => Math.max(
+        1,
+        (deadline.current ?? (Date.now() + CLIENT_REQUEST_TIMEOUT_MS)) - Date.now(),
+      );
+      await withClientDeadline(
+        liff.init({ liffId }),
+        remainingTime(),
+        "LINE 初始化超過 3 秒，請關閉後從官方帳號重新開啟。",
+      );
 
       // LINE restores LIFF URL query parameters during init, so read the view only after init resolves.
       const view = requestedView();
@@ -52,11 +76,11 @@ export function LiffEntryClient({ liffId }: { liffId: string }) {
       const idToken = liff.getIDToken();
       if (!idToken) throw new Error("無法取得 LINE 身分，請確認 LIFF 已勾選 openid scope");
 
-      const response = await fetch("/api/liff/session", {
+      const response = await fetchWithTimeout("/api/liff/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
-      });
+      }, remainingTime());
       const body = await readJsonResponse<{ profile?: LineProfileView; error?: string }>(response, "LINE 身分驗證失敗");
       if (!response.ok || !body.profile) throw new Error(body.error ?? "LINE 身分驗證失敗，請重新從官方帳號開啟");
       setState({ status: "ready", profile: body.profile, view });

@@ -32,7 +32,7 @@ export async function verifyLineIdToken(idToken: string, fetcher: FetchLike = fe
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ id_token: idToken, client_id: channelId }),
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(1_800),
     });
   } catch {
     throw new LineIdentityError("LINE 身分驗證服務暫時無法連線，請稍後重試");

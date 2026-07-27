@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FileClock } from "lucide-react";
 import { PageHeader, StatStrip } from "@/components/admin/admin-ui";
 import { Card, EmptyState, SkeletonRows } from "@/components/ui";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 
 type AuditLog = {
   id: string;
@@ -36,7 +36,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/admin/audit-logs")
+    fetchWithTimeout("/api/admin/audit-logs")
       .then(async (response) => {
         const data = await readJsonResponse<{ logs: AuditLog[]; error?: string }>(response, "讀取操作紀錄失敗");
         if (!response.ok) throw new Error(data.error ?? "讀取操作紀錄失敗");

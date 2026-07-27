@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole, Route, ShieldCheck } from "lucide-react";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     const password = String(new FormData(event.currentTarget).get("password") ?? "");
 
     try {
-      const response = await fetch("/api/admin/login", {
+      const response = await fetchWithTimeout("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

@@ -13,7 +13,7 @@ import { MobilePageHeader } from "@/components/booking/mobile-page-header";
 import { ShuttleCard } from "@/components/booking/shuttle-card";
 import type { Schedule } from "@/components/booking/types";
 import { addDaysToDateInput, tomorrowDateInput } from "@/lib/dates";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import type { LineProfileView } from "@/lib/line-profile-view";
 import Link from "next/link";
 
@@ -38,7 +38,7 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
       setScheduleError("");
 
       try {
-        const response = await fetch(`/api/schedules?date=${date}`, { signal: controller.signal });
+        const response = await fetchWithTimeout(`/api/schedules?date=${date}`, { signal: controller.signal });
         const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
         if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
         setSchedules(data.schedules);
@@ -77,7 +77,7 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
     const formData = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch("/api/bookings", {
+      const response = await fetchWithTimeout("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

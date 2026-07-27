@@ -2,6 +2,7 @@ import { Prisma, type Booking, type ShuttleSchedule } from "@prisma/client";
 import { bookingDeadline } from "./dates";
 import { buildIdentityKey, generateBookingCode } from "./identity";
 import { generateManagementToken, hashManagementToken } from "./management-token";
+import { queueGroBookingNotifications } from "./line-notification";
 import { getPrisma } from "./prisma";
 import { safeDepartureTime } from "./schedule-time";
 
@@ -273,7 +274,11 @@ async function createBookingInTransaction(
     source: input.createdBy,
   });
 
-  return { booking, managementToken };
+  const notificationIds = input.createdBy === "employee"
+    ? await queueGroBookingNotifications(tx, booking)
+    : [];
+
+  return { booking, managementToken, notificationIds };
 }
 
 export async function createEmployeeBooking(input: {

@@ -3,7 +3,7 @@
 import { ArrowLeft, BusFront, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/admin/admin-ui";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import type { ManagedBookingView } from "@/lib/booking-management";
 import type { LineProfileView } from "@/lib/line-profile-view";
 
@@ -26,7 +26,7 @@ export function LineBookingsClient({ profile }: { profile: LineProfileView }) {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    fetch("/api/me/bookings", { cache: "no-store", signal: controller.signal })
+    fetchWithTimeout("/api/me/bookings", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = await readJsonResponse<{ bookings?: LineBooking[]; error?: string }>(response, "讀取員工車報名失敗");
         if (!response.ok || !body.bookings) throw new Error(body.error ?? "讀取員工車報名失敗");
@@ -46,7 +46,7 @@ export function LineBookingsClient({ profile }: { profile: LineProfileView }) {
     if (!cancelTarget) return;
     setCanceling(true);
     try {
-      const response = await fetch(`/api/me/bookings/${encodeURIComponent(cancelTarget.id)}/cancel`, { method: "PATCH" });
+      const response = await fetchWithTimeout(`/api/me/bookings/${encodeURIComponent(cancelTarget.id)}/cancel`, { method: "PATCH" });
       const body = await readJsonResponse<{ booking?: LineBooking; error?: string }>(response, "取消失敗");
       if (!response.ok || !body.booking) throw new Error(body.error ?? "取消失敗");
       setBookings((items) => items.map((item) => item.id === body.booking!.id ? body.booking! : item));

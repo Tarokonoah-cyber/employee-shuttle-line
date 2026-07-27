@@ -4,7 +4,7 @@ import { RefreshCw, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PageHeader, ResponsiveDataList, SectionHeader } from "@/components/admin/admin-ui";
 import { Button, Card, EmptyState, SkeletonRows } from "@/components/ui";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 
 type LineUser = {
   id: string;
@@ -29,7 +29,7 @@ export default function AdminLineUsersPage() {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    fetch("/api/admin/line-users", { cache: "no-store", signal: controller.signal })
+    fetchWithTimeout("/api/admin/line-users", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = await readJsonResponse<{ profiles?: LineUser[]; error?: string }>(response, "讀取 LINE 使用者失敗");
         if (!response.ok || !body.profiles) throw new Error(body.error ?? "讀取 LINE 使用者失敗");

@@ -8,7 +8,7 @@ import { PageHeader, ResponsiveDataList, SectionHeader, StatStrip } from "@/comp
 import { StatusBadge } from "@/components/status-badge";
 import { Card, SkeletonRows } from "@/components/ui";
 import { adminDateHref, bookingListHref, validAdminDate } from "@/lib/admin-filters";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { tomorrowDateInput } from "@/lib/dates";
 
 type DashboardSchedule = {
@@ -63,7 +63,7 @@ function DashboardContent() {
   useEffect(() => {
     setError("");
     setLoading(true);
-    fetch(`/api/admin/dashboard?date=${date}`)
+    fetchWithTimeout(`/api/admin/dashboard?date=${date}`)
       .then(async (response) => {
         const payload = await readJsonResponse<DashboardData & { error?: string }>(response, "讀取 Dashboard 失敗");
         if (!response.ok) throw new Error(payload.error ?? "讀取 Dashboard 失敗");

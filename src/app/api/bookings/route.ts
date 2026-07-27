@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getManagedBooking, managementUrl, statusLineText, successUrl } from "@/lib/booking-management";
 import { createEmployeeBooking, isBusinessError } from "@/lib/booking-service";
 import { jsonError } from "@/lib/http";
 import { bookingInputSchema } from "@/lib/schemas";
 import { getLineSessionProfileId, lineIdentityRequired } from "@/lib/line-session";
+import { deliverQueuedLineNotifications } from "@/lib/line-notification";
 import { hasSafeRequestOrigin } from "@/lib/request-security";
 import { ZodError } from "zod";
 
@@ -17,10 +18,11 @@ export async function POST(request: Request) {
     }
     const body = await request.json();
     const input = bookingInputSchema.parse(body);
-    const { booking, managementToken } = await createEmployeeBooking(input, { lineProfileId });
+    const { booking, managementToken, notificationIds } = await createEmployeeBooking(input, { lineProfileId });
     const view = await getManagedBooking(managementToken);
     if (!view) throw new Error("建立報名管理連結失敗");
     const manageUrl = managementUrl(request, managementToken);
+    after(() => deliverQueuedLineNotifications(notificationIds));
 
     return NextResponse.json(
       {

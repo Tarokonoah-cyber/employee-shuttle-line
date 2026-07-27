@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { taipeiDateTime } from "@/lib/dates";
 import { getPrisma } from "@/lib/prisma";
+import { lineNotificationReadiness } from "@/lib/line-notification";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function GET() {
         version,
         serverTime: now.toISOString(),
         taipeiTime: taipeiDateTime(now),
+        lineNotifications: lineNotificationReadiness(),
       },
       { status: schemaReady ? 200 : 503, headers: { "Cache-Control": "no-store" } },
     );

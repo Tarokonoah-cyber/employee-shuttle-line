@@ -16,7 +16,7 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { adminDateHref, validAdminDate } from "@/lib/admin-filters";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { tomorrowDateInput } from "@/lib/dates";
 
 type Schedule = {
@@ -87,7 +87,7 @@ function SchedulesContent() {
   async function load() {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/schedules?date=${date}`);
+      const response = await fetchWithTimeout(`/api/admin/schedules?date=${date}`);
       const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
       if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
       setSchedules(data.schedules);
@@ -136,7 +136,7 @@ function SchedulesContent() {
     const url = form.id ? `/api/admin/schedules/${form.id}` : "/api/admin/schedules";
     const method = form.id ? "PATCH" : "POST";
     try {
-      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const response = await fetchWithTimeout(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await readJsonResponse<{ error?: string }>(response, "儲存車班失敗");
       if (!response.ok) throw new Error(data.error ?? "儲存車班失敗");
       setNotice({ text: "車班已儲存", tone: "success" });
@@ -155,7 +155,7 @@ function SchedulesContent() {
     if (!removeTarget) return;
     setRemoving(true);
     try {
-      const response = await fetch(`/api/admin/schedules/${removeTarget.id}`, { method: "DELETE" });
+      const response = await fetchWithTimeout(`/api/admin/schedules/${removeTarget.id}`, { method: "DELETE" });
       const data = await readJsonResponse<{ error?: string }>(response, "刪除失敗");
       if (!response.ok) throw new Error(data.error ?? "刪除失敗");
       setNotice({ text: "車班已刪除", tone: "success" });
@@ -171,7 +171,7 @@ function SchedulesContent() {
   async function createTomorrowFromTemplates() {
     try {
       const tomorrow = tomorrowDateInput();
-      const response = await fetch("/api/admin/schedules/create-from-template", {
+      const response = await fetchWithTimeout("/api/admin/schedules/create-from-template", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serviceDate: tomorrow }),

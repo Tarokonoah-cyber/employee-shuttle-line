@@ -16,7 +16,7 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { bookingFiltersToSearchParams, readBookingFilters } from "@/lib/admin-filters";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { tomorrowDateInput } from "@/lib/dates";
 
 type Schedule = {
@@ -114,7 +114,7 @@ function BookingsContent() {
 
   async function loadSchedules() {
     try {
-      const response = await fetch(`/api/admin/schedules?date=${date}`);
+      const response = await fetchWithTimeout(`/api/admin/schedules?date=${date}`);
       const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
       if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
       setSchedules(data.schedules);
@@ -127,7 +127,7 @@ function BookingsContent() {
     setLoading(true);
     const params = bookingFiltersToSearchParams({ date, status, scheduleId, keyword });
     try {
-      const response = await fetch(`/api/admin/bookings?${params.toString()}`);
+      const response = await fetchWithTimeout(`/api/admin/bookings?${params.toString()}`);
       const data = await readJsonResponse<{ bookings: Booking[]; error?: string }>(response, "讀取預約失敗");
       if (!response.ok) throw new Error(data.error ?? "讀取預約失敗");
       setBookings(data.bookings);
@@ -154,7 +154,7 @@ function BookingsContent() {
   async function addBooking(event: FormEvent) {
     event.preventDefault();
     try {
-      const response = await fetch("/api/admin/bookings", {
+      const response = await fetchWithTimeout("/api/admin/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addForm),
@@ -172,7 +172,7 @@ function BookingsContent() {
 
   async function action(url: string, body?: unknown) {
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : "{}",
@@ -192,7 +192,7 @@ function BookingsContent() {
     event.preventDefault();
     if (!editing) return;
     try {
-      const response = await fetch(`/api/admin/bookings/${editing.id}`, {
+      const response = await fetchWithTimeout(`/api/admin/bookings/${editing.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editing),
@@ -222,7 +222,7 @@ function BookingsContent() {
     if (date) params.set("date", date);
     if (scheduleId) params.set("schedule_id", scheduleId);
     try {
-      const response = await fetch(`/api/admin/line-copy?${params.toString()}`);
+      const response = await fetchWithTimeout(`/api/admin/line-copy?${params.toString()}`);
       const data = await readJsonResponse<{ text: string; error?: string }>(response, "產生公告失敗");
       if (!response.ok) throw new Error(data.error ?? "產生公告失敗");
       setLineCopy(data.text);
@@ -234,7 +234,7 @@ function BookingsContent() {
 
   async function createEmployeeManagementLink(booking: Booking) {
     try {
-      const response = await fetch(`/api/admin/bookings/${booking.id}/management-link`, { method: "POST" });
+      const response = await fetchWithTimeout(`/api/admin/bookings/${booking.id}/management-link`, { method: "POST" });
       const data = await readJsonResponse<{ lineText?: string; error?: string; message?: string }>(response, "建立管理連結失敗");
       if (!response.ok || !data.lineText) throw new Error(data.error ?? "建立管理連結失敗");
       setLineCopy(data.lineText);

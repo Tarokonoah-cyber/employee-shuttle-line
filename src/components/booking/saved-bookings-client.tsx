@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, BusFront, Link2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ManagedBookingView } from "@/lib/booking-management";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { forgetBookingToken, readSavedBookingTokens, saveBookingToken } from "@/lib/saved-bookings";
 
 type SavedBooking =
@@ -47,7 +47,7 @@ export function SavedBookingsClient() {
     const controller = new AbortController();
     Promise.all(tokens.map(async (token): Promise<SavedBooking> => {
       try {
-        const response = await fetch(`/api/bookings/manage/${encodeURIComponent(token)}`, {
+        const response = await fetchWithTimeout(`/api/bookings/manage/${encodeURIComponent(token)}`, {
           cache: "no-store",
           signal: controller.signal,
         });

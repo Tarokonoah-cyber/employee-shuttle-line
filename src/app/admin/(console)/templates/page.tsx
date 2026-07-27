@@ -10,7 +10,7 @@ import {
   StatStrip,
 } from "@/components/admin/admin-ui";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
-import { readJsonResponse } from "@/lib/client-http";
+import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { tomorrowDateInput } from "@/lib/dates";
 
 type Template = {
@@ -39,7 +39,7 @@ export default function AdminTemplatesPage() {
   async function load() {
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/templates");
+      const response = await fetchWithTimeout("/api/admin/templates");
       const data = await readJsonResponse<{ templates: Template[]; error?: string }>(response, "讀取模板失敗");
       if (!response.ok) throw new Error(data.error ?? "讀取模板失敗");
       setTemplates(data.templates);
@@ -69,7 +69,7 @@ export default function AdminTemplatesPage() {
     const url = form.id ? `/api/admin/templates/${form.id}` : "/api/admin/templates";
     const method = form.id ? "PATCH" : "POST";
     try {
-      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const response = await fetchWithTimeout(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const data = await readJsonResponse<{ error?: string }>(response, "儲存模板失敗");
       if (!response.ok) throw new Error(data.error ?? "儲存模板失敗");
       setNotice({ text: "模板已儲存", tone: "success" });
@@ -83,7 +83,7 @@ export default function AdminTemplatesPage() {
 
   async function createFromTemplates() {
     try {
-      const response = await fetch("/api/admin/schedules/create-from-template", {
+      const response = await fetchWithTimeout("/api/admin/schedules/create-from-template", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serviceDate: targetDate }),

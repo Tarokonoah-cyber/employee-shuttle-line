@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { logAudit } from "@/lib/booking-service";
 import { parseServiceDate } from "@/lib/dates";
 import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 import { scheduleInputSchema } from "@/lib/schemas";
+import {
+  deliverQueuedLineNotifications,
+  queueScheduleCancellationNotifications,
+} from "@/lib/line-notification";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminApi();
@@ -13,7 +17,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const input = scheduleInputSchema.parse(await request.json());
     const prisma = getPrisma();
-    const schedule = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM shuttle_schedules WHERE id = ${id} FOR UPDATE`;
       const oldValue = await tx.shuttleSchedule.findUnique({ where: { id } });
       if (!oldValue) throw new Error("找不到車班");
       const updated = await tx.shuttleSchedule.update({
@@ -31,9 +36,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         },
       });
       await logAudit(tx, { action: "schedule.update", targetType: "schedule", targetId: id, oldValue, newValue: updated, source: "admin" });
-      return updated;
+      const notificationIds = input.cancelled && !oldValue.cancelledAt
+        ? await queueScheduleCancellationNotifications(tx, updated)
+        : [];
+      return { schedule: updated, notificationIds };
     });
-    return NextResponse.json({ schedule });
+    after(() => deliverQueuedLineNotifications(result.notificationIds));
+    return NextResponse.json({ schedule: result.schedule });
   } catch (error) {
     if (error instanceof Error) return jsonError(error.message);
     return jsonError("更新車班失敗");
