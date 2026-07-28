@@ -33,13 +33,36 @@ export async function GET() {
         AND table_name = 'schedule_templates'
         AND column_name IN ('registration_cutoff_day_offset', 'registration_cutoff_time')
     `;
-    const lineProfileTable = await prisma.$queryRaw<Array<{ table_name: string | null }>>`
-      SELECT to_regclass('public.line_user_profiles')::text AS table_name
+    const lineProfileColumns = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'line_user_profiles'
+        AND column_name = 'receives_gro_notifications'
+    `;
+    const groSettingsTable = await prisma.$queryRaw<Array<{ table_name: string | null }>>`
+      SELECT to_regclass('public.gro_notification_settings')::text AS table_name
     `;
     const schemaReady = bookingColumns.length === 5
       && scheduleColumns.length === 2
       && templateColumns.length === 2
-      && Boolean(lineProfileTable[0]?.table_name);
+      && lineProfileColumns.length === 1
+      && Boolean(groSettingsTable[0]?.table_name);
+    let notificationReadiness = lineNotificationReadiness();
+
+    if (schemaReady) {
+      const [settings, databaseTargetCount] = await Promise.all([
+        prisma.groNotificationSettings.findUnique({
+          where: { id: "default" },
+          select: { managedInAdmin: true },
+        }),
+        prisma.lineUserProfile.count({ where: { receivesGroNotifications: true } }),
+      ]);
+      notificationReadiness = lineNotificationReadiness({
+        managedInAdmin: Boolean(settings?.managedInAdmin),
+        databaseTargetCount,
+      });
+    }
 
     return NextResponse.json(
       {
@@ -49,7 +72,7 @@ export async function GET() {
         version,
         serverTime: now.toISOString(),
         taipeiTime: taipeiDateTime(now),
-        lineNotifications: lineNotificationReadiness(),
+        lineNotifications: notificationReadiness,
       },
       { status: schemaReady ? 200 : 503, headers: { "Cache-Control": "no-store" } },
     );

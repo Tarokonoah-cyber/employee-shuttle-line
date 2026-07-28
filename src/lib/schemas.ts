@@ -91,6 +91,20 @@ export const templateInputSchema = z.object({
   active: z.boolean().optional().default(true),
 }).superRefine(cutoffBeforeDeparture);
 
+export const groNotificationAdminInputSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("set_recipient"),
+    profileId: z.string().min(1, "缺少 LINE 使用者"),
+    enabled: z.boolean(),
+  }),
+  z.object({
+    action: z.literal("use_environment"),
+  }),
+  z.object({
+    action: z.literal("use_admin"),
+  }),
+]);
+
 export const updateBookingSchema = z.object({
   employeeName: z.string().trim().min(1, "請填寫姓名").optional(),
   department: z.string().trim().min(1, "請填寫部門").optional(),

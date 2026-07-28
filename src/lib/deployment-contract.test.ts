@@ -37,7 +37,15 @@ test("registration deadline migration is additive and preserves legacy schedules
   assert.match(migration, /ADD COLUMN "registration_deadline" TIMESTAMP\(3\)/);
   assert.match(migration, /ADD COLUMN "registration_cutoff_day_offset" INTEGER NOT NULL DEFAULT 1/);
   assert.match(migration, /ADD COLUMN "registration_cutoff_time" TEXT NOT NULL DEFAULT '20:00'/);
-  assert.doesNotMatch(migration, /UPDATE|DROP TABLE|TRUNCATE|DELETE FROM/i);
+  assert.doesNotMatch(migration, /\bUPDATE\b|\bDROP TABLE\b|\bTRUNCATE\b|\bDELETE FROM\b/i);
+});
+
+test("GRO notification admin migration is additive and preserves environment fallback", () => {
+  const migration = readFileSync(`${root}/prisma/migrations/20260728020000_gro_notification_admin/migration.sql`, "utf8");
+  assert.match(migration, /ADD COLUMN "receives_gro_notifications" BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(migration, /CREATE TABLE "gro_notification_settings"/);
+  assert.match(migration, /"managed_in_admin" BOOLEAN NOT NULL DEFAULT false/);
+  assert.doesNotMatch(migration, /\bUPDATE\b|\bDROP TABLE\b|\bTRUNCATE\b|\bDELETE FROM\b/i);
 });
 
 test("quick template creation calculates a deadline for every new schedule", () => {
@@ -111,5 +119,7 @@ test("booking and schedule cancellation queue LINE work without blocking API res
   assert.match(scheduleRoute, /FOR UPDATE/);
   assert.match(notification, /LINE_CHANNEL_ACCESS_TOKEN/);
   assert.match(notification, /LINE_GRO_TARGET_IDS/);
+  assert.match(notification, /effectiveGroNotificationTargets/);
+  assert.match(notification, /receivesGroNotifications: true/);
   assert.doesNotMatch(notification, /Bearer [A-Za-z0-9_-]{20,}/);
 });

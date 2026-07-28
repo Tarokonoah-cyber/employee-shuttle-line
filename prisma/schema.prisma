@@ -87,22 +87,32 @@ model Booking {
 }
 
 model LineUserProfile {
-  id                    String    @id @default(cuid())
-  lineUserId            String    @unique @map("line_user_id")
-  lineDisplayName       String?   @map("line_display_name")
-  linePictureUrl        String?   @map("line_picture_url")
-  employeeName          String?   @map("employee_name")
-  employeeNo            String?   @map("employee_no")
-  department            String?
-  phone                 String?
-  defaultPickupLocation String?   @map("default_pickup_location")
-  lastUsedAt            DateTime  @default(now()) @map("last_used_at")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
-  bookings              Booking[]
+  id                       String    @id @default(cuid())
+  lineUserId               String    @unique @map("line_user_id")
+  lineDisplayName          String?   @map("line_display_name")
+  linePictureUrl           String?   @map("line_picture_url")
+  employeeName             String?   @map("employee_name")
+  employeeNo               String?   @map("employee_no")
+  department               String?
+  phone                    String?
+  defaultPickupLocation    String?   @map("default_pickup_location")
+  receivesGroNotifications Boolean   @default(false) @map("receives_gro_notifications")
+  lastUsedAt               DateTime  @default(now()) @map("last_used_at")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  bookings                 Booking[]
 
   @@index([lastUsedAt])
+  @@index([receivesGroNotifications])
   @@map("line_user_profiles")
+}
+
+model GroNotificationSettings {
+  id             String   @id
+  managedInAdmin Boolean  @default(false) @map("managed_in_admin")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("gro_notification_settings")
 }
 
 model AuditLog {

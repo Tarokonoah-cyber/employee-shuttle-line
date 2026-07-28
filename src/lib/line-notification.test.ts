@@ -4,7 +4,9 @@ import {
   buildGroBookingMessage,
   buildScheduleCancellationMessage,
   groNotificationTargets,
+  lineNotificationReadiness,
   lineRetryKey,
+  resolveGroNotificationTargets,
   sendLinePush,
 } from "./line-notification";
 
@@ -16,6 +18,34 @@ test("GRO targets accept LINE users and groups, remove duplicates, and reject ma
     groNotificationTargets(`${userTarget}, ${groupTarget};${userTarget} invalid`),
     [userTarget, groupTarget],
   );
+});
+
+test("admin-managed GRO recipients override environment targets", () => {
+  assert.deepEqual(
+    resolveGroNotificationTargets({
+      managedInAdmin: true,
+      databaseTargets: [userTarget, userTarget, "invalid"],
+      environmentTargets: groupTarget,
+    }),
+    [userTarget],
+  );
+});
+
+test("admin can intentionally configure no GRO recipients", () => {
+  assert.deepEqual(
+    resolveGroNotificationTargets({
+      managedInAdmin: true,
+      databaseTargets: [],
+      environmentTargets: groupTarget,
+    }),
+    [],
+  );
+});
+
+test("LINE readiness reports the active admin-managed recipient count", () => {
+  const readiness = lineNotificationReadiness({ managedInAdmin: true, databaseTargetCount: 2 });
+  assert.equal(readiness.source, "admin");
+  assert.equal(readiness.groTargetCount, 2);
 });
 
 test("new-booking notice contains the operational fields GRO needs", () => {

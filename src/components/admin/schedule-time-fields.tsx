@@ -3,8 +3,8 @@
 import { FieldLabel } from "@/components/ui";
 import { registrationDeadlineFromRule, taipeiDateTimeShort } from "@/lib/dates";
 
-const departurePresets = ["07:30", "08:30", "17:30", "18:30"];
-const cutoffPresets = ["18:00", "20:00", "22:00"];
+const departurePresets = ["14:00", "16:00"];
+const cutoffPresets = ["20:00", "22:00"];
 
 function TimePresets({
   value,

@@ -38,7 +38,7 @@ const navigation = [
   {
     label: "系統",
     items: [
-      { href: "/admin/line-users", label: "LINE 使用者", icon: UsersRound },
+      { href: "/admin/line-users", label: "LINE 通知管理", icon: UsersRound },
       { href: "/admin/audit-logs", label: "操作紀錄", icon: FileClock },
     ],
   },

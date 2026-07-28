@@ -49,13 +49,47 @@ export function groNotificationTargets(
   return uniqueValidTargets(configured.split(/[\s,;]+/));
 }
 
-export function lineNotificationReadiness() {
-  const groTargetCount = groNotificationTargets().length;
+export function resolveGroNotificationTargets(input: {
+  managedInAdmin: boolean;
+  databaseTargets?: string[];
+  environmentTargets?: string;
+}) {
+  return input.managedInAdmin
+    ? uniqueValidTargets(input.databaseTargets ?? [])
+    : groNotificationTargets(input.environmentTargets);
+}
+
+export function lineNotificationReadiness(input: {
+  managedInAdmin?: boolean;
+  databaseTargetCount?: number;
+} = {}) {
+  const source = input.managedInAdmin ? "admin" : "environment";
+  const groTargetCount = input.managedInAdmin
+    ? Math.max(0, Math.trunc(input.databaseTargetCount ?? 0))
+    : groNotificationTargets().length;
   return {
     status: process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim() && groTargetCount > 0 ? "ready" : "configuration_required",
     accessTokenConfigured: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim()),
     groTargetCount,
+    source,
   };
+}
+
+async function effectiveGroNotificationTargets(tx: Tx) {
+  const settings = await tx.groNotificationSettings.findUnique({
+    where: { id: "default" },
+    select: { managedInAdmin: true },
+  });
+  if (!settings?.managedInAdmin) return groNotificationTargets();
+
+  const recipients = await tx.lineUserProfile.findMany({
+    where: { receivesGroNotifications: true },
+    select: { lineUserId: true },
+  });
+  return resolveGroNotificationTargets({
+    managedInAdmin: true,
+    databaseTargets: recipients.map((recipient) => recipient.lineUserId),
+  });
 }
 
 export function buildGroBookingMessage(booking: BookingForGro) {
@@ -90,7 +124,7 @@ export function buildScheduleCancellationMessage(schedule: ScheduleForCancellati
 
 export async function queueGroBookingNotifications(tx: Tx, booking: BookingForGro) {
   const message = buildGroBookingMessage(booking);
-  const targets = groNotificationTargets();
+  const targets = await effectiveGroNotificationTargets(tx);
 
   if (targets.length === 0) {
     await tx.notificationLog.create({
@@ -99,7 +133,7 @@ export async function queueGroBookingNotifications(tx: Tx, booking: BookingForGr
         channel: "LINE",
         message,
         status: "skipped",
-        errorMessage: "LINE_GRO_TARGET_IDS is not configured.",
+        errorMessage: "No GRO LINE notification recipient is configured.",
       },
     });
     return [];

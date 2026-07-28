@@ -23,6 +23,7 @@ function profile(lineUserId: string): LineUserProfile {
     department: null,
     phone: null,
     defaultPickupLocation: null,
+    receivesGroNotifications: false,
     lastUsedAt: now,
     createdAt: now,
     updatedAt: now,

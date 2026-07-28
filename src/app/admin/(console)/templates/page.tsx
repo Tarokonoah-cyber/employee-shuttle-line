@@ -37,7 +37,7 @@ type Template = {
 const empty = {
   id: "",
   routeName: "",
-  departureTime: "07:30",
+  departureTime: "14:00",
   registrationCutoffDayOffset: DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
   registrationCutoffTime: DEFAULT_REGISTRATION_CUTOFF_TIME,
   pickupPoint: "",
@@ -176,7 +176,7 @@ export default function AdminTemplatesPage() {
         description="設定常用班次的發車時間、截止時間、名額與候補規則。"
       >
         <form className="space-y-4" onSubmit={submit}>
-          <FieldLabel label="模板名稱" required><input className="field" value={form.routeName} onChange={(event) => setForm({ ...form, routeName: event.target.value })} placeholder="例如：07:30 員工車" required /></FieldLabel>
+          <FieldLabel label="模板名稱" required><input className="field" value={form.routeName} onChange={(event) => setForm({ ...form, routeName: event.target.value })} placeholder="例如：14:00 員工車" required /></FieldLabel>
           <div className="grid gap-4 sm:grid-cols-2">
             <DepartureTimeField value={form.departureTime} onChange={(departureTime) => setForm({ ...form, departureTime })} />
             <FieldLabel label="預設名額" required><input className="field" type="number" min={1} value={form.defaultCapacity} onChange={(event) => setForm({ ...form, defaultCapacity: Number(event.target.value) })} /></FieldLabel>

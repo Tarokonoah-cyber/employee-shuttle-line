@@ -21,7 +21,7 @@ test("remembered profile is returned for the same verified session", () => {
   const profile: LineUserProfile = {
     id: "profile_1", lineUserId: `U${"d".repeat(32)}`, lineDisplayName: "LINE 員工", linePictureUrl: null,
     employeeName: "王小明", employeeNo: "A123", department: "客務部", phone: "0912-345-678",
-    defaultPickupLocation: "員工宿舍", lastUsedAt: now, createdAt: now, updatedAt: now,
+    defaultPickupLocation: "員工宿舍", receivesGroNotifications: false, lastUsedAt: now, createdAt: now, updatedAt: now,
   };
   assert.equal(publicLineProfile(profile).employeeName, "王小明");
   assert.equal(publicLineProfile(profile).department, "客務部");
