@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
-import { Check, MapPin } from "lucide-react";
+import { Check, Clock3, MapPin } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { taipeiDateTimeShort } from "@/lib/dates";
 import { SeatProgressBar } from "./seat-progress-bar";
 import { canRegisterSchedule, getEmployeeScheduleState, type Schedule } from "./types";
 
@@ -44,6 +45,10 @@ export function ShuttleCard({ schedule, selected, onSelect }: ShuttleCardProps) 
       <p className="mt-1.5 flex items-center gap-1.5 text-sm text-stone-600">
         <MapPin size={15} aria-hidden="true" />
         <span className="truncate">{schedule.pickupPoint}</span>
+      </p>
+      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-stone-500">
+        <Clock3 size={14} aria-hidden="true" />
+        <span>報名／取消截止 {taipeiDateTimeShort(schedule.registrationDeadline)}</span>
       </p>
 
       <div className="mt-3 grid grid-cols-3 gap-2 border-t border-stone-100 pt-3 text-sm">

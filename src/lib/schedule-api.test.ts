@@ -3,7 +3,7 @@ import test from "node:test";
 import type { ShuttleSchedule } from "@prisma/client";
 import { decorateScheduleRows, decorateSchedules } from "./booking-service";
 import { taipeiScheduleDateTime } from "./dates";
-import { scheduleInputSchema } from "./schemas";
+import { scheduleInputSchema, templateInputSchema } from "./schemas";
 import { normalizeDepartureTime } from "./schedule-time";
 
 function schedule(input: Partial<ShuttleSchedule> = {}) {
@@ -12,6 +12,7 @@ function schedule(input: Partial<ShuttleSchedule> = {}) {
     serviceDate: input.serviceDate ?? new Date("2026-07-14T00:00:00.000Z"),
     routeName: input.routeName ?? "Employee shuttle",
     departureTime: "departureTime" in input ? input.departureTime! : "07:30",
+    registrationDeadline: input.registrationDeadline ?? null,
     pickupPoint: input.pickupPoint ?? "Dorm",
     capacity: "capacity" in input ? input.capacity! : 20,
     registrationOpen: input.registrationOpen ?? true,
@@ -39,6 +40,8 @@ test("admin schedule input normalizes single digit hour before create", () => {
   });
 
   assert.equal(input.departureTime, "07:30");
+  assert.equal(input.registrationCutoffDayOffset, 1);
+  assert.equal(input.registrationCutoffTime, "20:00");
 });
 
 test("employee schedule view can read an open schedule", () => {
@@ -51,6 +54,44 @@ test("employee schedule view can read an open schedule", () => {
   assert.equal(rows[0].registrationOpen, true);
   assert.equal(rows[0].confirmedCount, 8);
   assert.equal(rows[0].remainingCount, 12);
+});
+
+test("configured registration deadline overrides the legacy global cutoff", () => {
+  const registrationDeadline = new Date("2026-07-13T12:00:00.000Z");
+  const rows = decorateScheduleRows(
+    [schedule({ registrationDeadline })],
+    [],
+    new Date("2026-07-13T11:59:00.000Z"),
+  );
+
+  assert.equal(rows[0].registrationDeadline.toISOString(), registrationDeadline.toISOString());
+  assert.equal(rows[0].isRegistrationClosedByTime, false);
+});
+
+test("same-day cutoff must be earlier than departure", () => {
+  const result = scheduleInputSchema.safeParse({
+    serviceDate: "2026-07-14",
+    routeName: "Employee shuttle",
+    departureTime: "07:30",
+    registrationCutoffDayOffset: 0,
+    registrationCutoffTime: "08:00",
+    pickupPoint: "Dorm",
+    capacity: 20,
+  });
+
+  assert.equal(result.success, false);
+});
+
+test("template cutoff defaults to the previous day at 20:00", () => {
+  const input = templateInputSchema.parse({
+    routeName: "Employee shuttle",
+    departureTime: "07:30",
+    pickupPoint: "Dorm",
+    defaultCapacity: 20,
+  });
+
+  assert.equal(input.registrationCutoffDayOffset, 1);
+  assert.equal(input.registrationCutoffTime, "20:00");
 });
 
 test("Taipei schedule date does not shift the service date", () => {

@@ -13,17 +13,28 @@ import {
   SidePanel,
   StatStrip,
 } from "@/components/admin/admin-ui";
+import {
+  DepartureTimeField,
+  RegistrationDeadlineFields,
+} from "@/components/admin/schedule-time-fields";
 import { StatusBadge } from "@/components/status-badge";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { adminDateHref, validAdminDate } from "@/lib/admin-filters";
 import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
-import { tomorrowDateInput } from "@/lib/dates";
+import {
+  DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+  DEFAULT_REGISTRATION_CUTOFF_TIME,
+  registrationDeadlineRule,
+  taipeiDateTimeShort,
+  tomorrowDateInput,
+} from "@/lib/dates";
 
 type Schedule = {
   id: string;
   serviceDate: string;
   routeName: string;
   departureTime: string;
+  registrationDeadline: string;
   pickupPoint: string;
   capacity: number;
   registrationOpen: boolean;
@@ -34,6 +45,7 @@ type Schedule = {
   cancelledCount: number;
   remainingCount: number;
   isOverbooked: boolean;
+  isRegistrationClosedByTime: boolean;
   cancelledAt?: string | null;
 };
 
@@ -41,7 +53,9 @@ const emptyForm = {
   id: "",
   serviceDate: tomorrowDateInput(),
   routeName: "",
-  departureTime: "",
+  departureTime: "07:30",
+  registrationCutoffDayOffset: DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+  registrationCutoffTime: DEFAULT_REGISTRATION_CUTOFF_TIME,
   pickupPoint: "",
   capacity: 20,
   registrationOpen: true,
@@ -114,11 +128,14 @@ function SchedulesContent() {
   }
 
   function editSchedule(schedule: Schedule) {
+    const cutoff = registrationDeadlineRule(schedule.serviceDate, schedule.registrationDeadline);
     setForm({
       id: schedule.id,
       serviceDate: schedule.serviceDate.slice(0, 10),
       routeName: schedule.routeName,
       departureTime: schedule.departureTime,
+      registrationCutoffDayOffset: cutoff.dayOffset,
+      registrationCutoffTime: cutoff.time,
       pickupPoint: schedule.pickupPoint,
       capacity: schedule.capacity,
       registrationOpen: schedule.registrationOpen,
@@ -231,7 +248,7 @@ function SchedulesContent() {
                 <tbody>
                   {schedules.map((schedule) => (
                     <tr key={schedule.id}>
-                      <td><strong className="font-mono text-primary">{schedule.departureTime}</strong><br /><span className="font-semibold">{schedule.routeName}</span></td>
+                      <td><strong className="font-mono text-primary">{schedule.departureTime}</strong><br /><span className="font-semibold">{schedule.routeName}</span><br /><span className="text-xs text-stone-500">截止 {taipeiDateTimeShort(schedule.registrationDeadline)}</span></td>
                       <td>{schedule.pickupPoint}</td>
                       <td>正取 {schedule.confirmedCount}/{schedule.capacity}<br /><span className="text-xs text-stone-600">候補 {schedule.waitlistCount}，剩餘 {schedule.remainingCount}</span></td>
                       <td><div className="flex flex-wrap gap-1">{statusFor(schedule)}{!schedule.waitlistEnabled && <span className="text-xs text-stone-500">候補關閉</span>}</div></td>
@@ -244,7 +261,7 @@ function SchedulesContent() {
             }
             mobile={schedules.map((schedule) => (
               <article key={schedule.id} className="rounded-[8px] border border-border bg-surface p-4">
-                <div className="flex items-start justify-between gap-3"><div><p className="font-mono text-2xl font-bold text-primary">{schedule.departureTime}</p><p className="font-bold">{schedule.routeName}</p><p className="mt-1 text-sm text-stone-600">{schedule.pickupPoint}</p></div>{statusFor(schedule)}</div>
+                <div className="flex items-start justify-between gap-3"><div><p className="font-mono text-2xl font-bold text-primary">{schedule.departureTime}</p><p className="font-bold">{schedule.routeName}</p><p className="mt-1 text-sm text-stone-600">{schedule.pickupPoint}</p><p className="mt-1 text-xs text-stone-500">截止 {taipeiDateTimeShort(schedule.registrationDeadline)}</p></div>{statusFor(schedule)}</div>
                 <p className="mt-3 rounded-[7px] bg-surface-strong p-3 text-sm">正取 {schedule.confirmedCount}/{schedule.capacity} · 候補 {schedule.waitlistCount} · 剩餘 {schedule.remainingCount}</p>
                 <div className="mt-3 flex gap-2"><Button type="button" className="flex-1" onClick={() => editSchedule(schedule)}>編輯</Button><Button type="button" variant="danger" onClick={() => setRemoveTarget(schedule)}><Trash2 size={15} />刪除</Button></div>
               </article>
@@ -257,15 +274,22 @@ function SchedulesContent() {
         open={panelOpen}
         onOpenChange={setPanelOpen}
         title={form.id ? "編輯車班" : "新增車班"}
-        description="設定日期、上車點、名額與登記狀態。"
+        description="設定日期、發車與截止時間、上車點、名額及登記狀態。"
       >
         <form className="space-y-4" onSubmit={submit}>
           <FieldLabel label="日期" required><input className="field" type="date" value={form.serviceDate} onChange={(event) => setForm({ ...form, serviceDate: event.target.value })} /></FieldLabel>
           <FieldLabel label="車班名稱" required><input className="field" value={form.routeName} onChange={(event) => setForm({ ...form, routeName: event.target.value })} placeholder="例如：07:30 員工車" required /></FieldLabel>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FieldLabel label="發車時間" required><input className="field" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} placeholder="07:30" required /></FieldLabel>
+            <DepartureTimeField value={form.departureTime} onChange={(departureTime) => setForm({ ...form, departureTime })} />
             <FieldLabel label="名額上限" required><input className="field" type="number" min={1} value={form.capacity} onChange={(event) => setForm({ ...form, capacity: Number(event.target.value) })} /></FieldLabel>
           </div>
+          <RegistrationDeadlineFields
+            serviceDate={form.serviceDate}
+            dayOffset={form.registrationCutoffDayOffset}
+            time={form.registrationCutoffTime}
+            onDayOffsetChange={(registrationCutoffDayOffset) => setForm({ ...form, registrationCutoffDayOffset })}
+            onTimeChange={(registrationCutoffTime) => setForm({ ...form, registrationCutoffTime })}
+          />
           <FieldLabel label="上車點" required><input className="field" value={form.pickupPoint} onChange={(event) => setForm({ ...form, pickupPoint: event.target.value })} placeholder="例如：員工宿舍" required /></FieldLabel>
           <div className="grid gap-2 sm:grid-cols-2">
             <ToggleField label="開放登記" checked={form.registrationOpen} onChange={(checked) => setForm({ ...form, registrationOpen: checked })} />
@@ -300,7 +324,7 @@ function ToggleField({ label, checked, onChange }: { label: string; checked: boo
 
 function statusFor(schedule: Schedule) {
   if (schedule.cancelledAt) return <StatusBadge value="schedule_cancelled" />;
-  if (!schedule.registrationOpen) return <StatusBadge value="closed" />;
+  if (!schedule.registrationOpen || schedule.isRegistrationClosedByTime) return <StatusBadge value="closed" />;
   if (schedule.isOverbooked) return <StatusBadge value="overbooked" />;
   if (schedule.confirmedCount >= schedule.capacity) return <StatusBadge value="full" />;
   return <StatusBadge value="open" />;

@@ -32,6 +32,21 @@ test("LINE profile migration is additive and keeps old bookings nullable", () =>
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
 
+test("registration deadline migration is additive and preserves legacy schedules", () => {
+  const migration = readFileSync(`${root}/prisma/migrations/20260728010000_schedule_registration_deadlines/migration.sql`, "utf8");
+  assert.match(migration, /ADD COLUMN "registration_deadline" TIMESTAMP\(3\)/);
+  assert.match(migration, /ADD COLUMN "registration_cutoff_day_offset" INTEGER NOT NULL DEFAULT 1/);
+  assert.match(migration, /ADD COLUMN "registration_cutoff_time" TEXT NOT NULL DEFAULT '20:00'/);
+  assert.doesNotMatch(migration, /UPDATE|DROP TABLE|TRUNCATE|DELETE FROM/i);
+});
+
+test("quick template creation calculates a deadline for every new schedule", () => {
+  const route = readFileSync(`${root}/src/app/api/admin/schedules/create-from-template/route.ts`, "utf8");
+  assert.match(route, /registrationDeadline: registrationDeadlineFromRule/);
+  assert.match(route, /template\.registrationCutoffDayOffset/);
+  assert.match(route, /template\.registrationCutoffTime/);
+});
+
 test("active-booking partial unique constraint remains in migration history", () => {
   const initial = readFileSync(`${root}/prisma/migrations/20260709000000_init/migration.sql`, "utf8");
   assert.match(initial, /bookings_schedule_identity_active_unique/);

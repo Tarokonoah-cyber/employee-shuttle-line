@@ -15,6 +15,7 @@ function schedule(input: Partial<ShuttleSchedule> = {}) {
     serviceDate: input.serviceDate ?? new Date("2026-07-14T00:00:00.000Z"),
     routeName: input.routeName ?? "Employee shuttle",
     departureTime: input.departureTime ?? "07:30",
+    registrationDeadline: input.registrationDeadline ?? null,
     pickupPoint: input.pickupPoint ?? "Dorm",
     capacity: input.capacity ?? 20,
     registrationOpen: input.registrationOpen ?? true,

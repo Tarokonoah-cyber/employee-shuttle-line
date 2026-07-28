@@ -1,6 +1,8 @@
 import { normalizeDepartureTime } from "./schedule-time";
 
 export const APP_TIME_ZONE = "Asia/Taipei";
+export const DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET = 1;
+export const DEFAULT_REGISTRATION_CUTOFF_TIME = "20:00";
 
 const dateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: APP_TIME_ZONE,
@@ -88,7 +90,61 @@ export function bookingDeadline(serviceDate: Date | string, departureTime: strin
   return new Date(taipeiScheduleDateTime(serviceDate, departureTime).getTime() - cutoffMinutes * 60_000);
 }
 
-export function taipeiDateTime(value: Date) {
+export function registrationDeadlineFromRule(serviceDate: Date | string, dayOffset: number, cutoffTime: string) {
+  if (!Number.isInteger(dayOffset) || dayOffset < 0 || dayOffset > 1) {
+    throw new Error("截止日期只能選擇發車當日或前一天");
+  }
+
+  const cutoffDate = addDaysToDateInput(displayDate(serviceDate), -dayOffset);
+  return taipeiScheduleDateTime(cutoffDate, cutoffTime);
+}
+
+export function resolveBookingDeadline(schedule: {
+  serviceDate: Date | string;
+  departureTime: string;
+  registrationDeadline?: Date | string | null;
+}) {
+  if (schedule.registrationDeadline) {
+    const configured = schedule.registrationDeadline instanceof Date
+      ? schedule.registrationDeadline
+      : new Date(schedule.registrationDeadline);
+    if (!Number.isNaN(configured.getTime())) return configured;
+  }
+
+  return bookingDeadline(schedule.serviceDate, schedule.departureTime);
+}
+
+export function registrationDeadlineRule(serviceDate: Date | string, deadline: Date | string) {
+  const configured = deadline instanceof Date ? deadline : new Date(deadline);
+  if (Number.isNaN(configured.getTime())) {
+    return {
+      dayOffset: DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+      time: DEFAULT_REGISTRATION_CUTOFF_TIME,
+    };
+  }
+
+  const deadlineDate = formatDateInput(configured);
+  const serviceDateInput = displayDate(serviceDate);
+  const dayOffset = Math.round(
+    (parseServiceDate(serviceDateInput).getTime() - parseServiceDate(deadlineDate).getTime()) / 86_400_000,
+  );
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(configured);
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+
+  return {
+    dayOffset: dayOffset === 0 ? 0 : DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+    time: hour && minute ? `${hour}:${minute}` : DEFAULT_REGISTRATION_CUTOFF_TIME,
+  };
+}
+
+export function taipeiDateTime(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
   return new Intl.DateTimeFormat("zh-TW", {
     timeZone: APP_TIME_ZONE,
     year: "numeric",
@@ -98,5 +154,18 @@ export function taipeiDateTime(value: Date) {
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-  }).format(value);
+  }).format(date);
+}
+
+export function taipeiDateTimeShort(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: APP_TIME_ZONE,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }

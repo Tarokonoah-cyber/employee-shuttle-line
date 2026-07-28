@@ -9,14 +9,24 @@ import {
   SidePanel,
   StatStrip,
 } from "@/components/admin/admin-ui";
+import {
+  DepartureTimeField,
+  RegistrationDeadlineFields,
+} from "@/components/admin/schedule-time-fields";
 import { Button, Card, EmptyState, FieldLabel, SkeletonRows } from "@/components/ui";
 import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
-import { tomorrowDateInput } from "@/lib/dates";
+import {
+  DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+  DEFAULT_REGISTRATION_CUTOFF_TIME,
+  tomorrowDateInput,
+} from "@/lib/dates";
 
 type Template = {
   id: string;
   routeName: string;
   departureTime: string;
+  registrationCutoffDayOffset: number;
+  registrationCutoffTime: string;
   pickupPoint: string;
   defaultCapacity: number;
   waitlistEnabled: boolean;
@@ -24,7 +34,18 @@ type Template = {
   active: boolean;
 };
 
-const empty = { id: "", routeName: "", departureTime: "", pickupPoint: "", defaultCapacity: 20, waitlistEnabled: true, note: "", active: true };
+const empty = {
+  id: "",
+  routeName: "",
+  departureTime: "07:30",
+  registrationCutoffDayOffset: DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+  registrationCutoffTime: DEFAULT_REGISTRATION_CUTOFF_TIME,
+  pickupPoint: "",
+  defaultCapacity: 20,
+  waitlistEnabled: true,
+  note: "",
+  active: true,
+};
 
 export default function AdminTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -139,6 +160,7 @@ export default function AdminTemplatesPage() {
               <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[7px] border border-border bg-border text-sm">
                 <div className="bg-surface p-3"><dt className="text-stone-600">預設名額</dt><dd className="mt-1 font-bold">{template.defaultCapacity}</dd></div>
                 <div className="bg-surface p-3"><dt className="text-stone-600">候補</dt><dd className="mt-1 font-bold">{template.waitlistEnabled ? "開放" : "不開放"}</dd></div>
+                <div className="col-span-2 bg-surface p-3"><dt className="text-stone-600">報名／取消截止</dt><dd className="mt-1 font-bold">{template.registrationCutoffDayOffset === 1 ? "發車前一天" : "發車當日"} {template.registrationCutoffTime}</dd></div>
               </dl>
               {template.note && <p className="mt-3 flex-1 text-sm leading-6 text-stone-600">{template.note}</p>}
               <Button type="button" className="mt-4 w-full" onClick={() => startEdit(template)}><CheckCircle2 size={16} />編輯模板</Button>
@@ -151,14 +173,20 @@ export default function AdminTemplatesPage() {
         open={panelOpen}
         onOpenChange={setPanelOpen}
         title={form.id ? "編輯模板" : "新增模板"}
-        description="設定常用班次的時間、名額與候補規則。"
+        description="設定常用班次的發車時間、截止時間、名額與候補規則。"
       >
         <form className="space-y-4" onSubmit={submit}>
           <FieldLabel label="模板名稱" required><input className="field" value={form.routeName} onChange={(event) => setForm({ ...form, routeName: event.target.value })} placeholder="例如：07:30 員工車" required /></FieldLabel>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FieldLabel label="發車時間" required><input className="field" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} placeholder="07:30" required /></FieldLabel>
+            <DepartureTimeField value={form.departureTime} onChange={(departureTime) => setForm({ ...form, departureTime })} />
             <FieldLabel label="預設名額" required><input className="field" type="number" min={1} value={form.defaultCapacity} onChange={(event) => setForm({ ...form, defaultCapacity: Number(event.target.value) })} /></FieldLabel>
           </div>
+          <RegistrationDeadlineFields
+            dayOffset={form.registrationCutoffDayOffset}
+            time={form.registrationCutoffTime}
+            onDayOffsetChange={(registrationCutoffDayOffset) => setForm({ ...form, registrationCutoffDayOffset })}
+            onTimeChange={(registrationCutoffTime) => setForm({ ...form, registrationCutoffTime })}
+          />
           <FieldLabel label="上車點" required><input className="field" value={form.pickupPoint} onChange={(event) => setForm({ ...form, pickupPoint: event.target.value })} placeholder="例如：員工宿舍" required /></FieldLabel>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="flex items-center gap-2 rounded-[8px] border border-border bg-surface p-3 text-sm font-semibold"><input type="checkbox" checked={form.waitlistEnabled} onChange={(event) => setForm({ ...form, waitlistEnabled: event.target.checked })} />開放候補</label>

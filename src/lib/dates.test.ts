@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bookingDeadline, taipeiScheduleDateTime } from "./dates";
+import {
+  bookingDeadline,
+  registrationDeadlineFromRule,
+  registrationDeadlineRule,
+  resolveBookingDeadline,
+  taipeiScheduleDateTime,
+} from "./dates";
 
 test("Taipei departure time is converted to UTC without server timezone drift", () => {
   assert.equal(taipeiScheduleDateTime("2026-07-12", "07:30").toISOString(), "2026-07-11T23:30:00.000Z");
@@ -8,6 +14,23 @@ test("Taipei departure time is converted to UTC without server timezone drift", 
 
 test("booking deadline subtracts the configured cutoff", () => {
   assert.equal(bookingDeadline("2026-07-12", "07:30", 60).toISOString(), "2026-07-11T22:30:00.000Z");
+});
+
+test("registration deadline can be set to the previous Taipei day", () => {
+  const deadline = registrationDeadlineFromRule("2026-07-12", 1, "20:00");
+  assert.equal(deadline.toISOString(), "2026-07-11T12:00:00.000Z");
+  assert.deepEqual(registrationDeadlineRule("2026-07-12", deadline), { dayOffset: 1, time: "20:00" });
+});
+
+test("stored schedule deadline takes precedence over the legacy cutoff", () => {
+  assert.equal(
+    resolveBookingDeadline({
+      serviceDate: "2026-07-12",
+      departureTime: "07:30",
+      registrationDeadline: "2026-07-11T12:00:00.000Z",
+    }).toISOString(),
+    "2026-07-11T12:00:00.000Z",
+  );
 });
 
 test("invalid departure time is rejected", () => {

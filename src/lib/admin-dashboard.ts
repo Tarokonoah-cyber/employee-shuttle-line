@@ -1,5 +1,5 @@
 import type { Booking, BookingStatus, ShuttleSchedule } from "@prisma/client";
-import { bookingDeadline, displayDate, tomorrowDateInput } from "./dates";
+import { displayDate, resolveBookingDeadline, tomorrowDateInput } from "./dates";
 import { safeDepartureTime } from "./schedule-time";
 
 type StatusCount = {
@@ -99,7 +99,7 @@ export function buildDashboardSchedules(schedules: ShuttleSchedule[], countsBySc
     let registrationDeadline: Date | null = null;
     if (departureTime !== "--:--") {
       try {
-        registrationDeadline = bookingDeadline(schedule.serviceDate, departureTime);
+        registrationDeadline = resolveBookingDeadline(schedule);
       } catch {
         registrationDeadline = null;
       }

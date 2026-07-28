@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/booking-service";
-import { displayDate, parseServiceDate, tomorrowDateInput } from "@/lib/dates";
+import {
+  displayDate,
+  parseServiceDate,
+  registrationDeadlineFromRule,
+  tomorrowDateInput,
+} from "@/lib/dates";
 import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 
@@ -40,6 +45,11 @@ export async function POST(request: Request) {
               serviceDate,
               routeName: template.routeName,
               departureTime: template.departureTime,
+              registrationDeadline: registrationDeadlineFromRule(
+                serviceDate,
+                template.registrationCutoffDayOffset,
+                template.registrationCutoffTime,
+              ),
               pickupPoint: template.pickupPoint,
               capacity: template.defaultCapacity,
               waitlistEnabled: template.waitlistEnabled,

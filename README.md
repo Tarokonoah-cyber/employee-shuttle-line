@@ -12,7 +12,7 @@ ADMIN_PASSWORD=<strong password>
 ADMIN_SESSION_SECRET=<long random value>
 APP_BASE_URL=https://employee-shuttle-line-production.up.railway.app
 NEXT_PUBLIC_APP_NAME=員工車上車登記系統
-BOOKING_CUTOFF_MINUTES=60
+BOOKING_CUTOFF_MINUTES=60 # 僅供尚未設定個別截止時間的舊車班相容使用
 NEXT_PUBLIC_LINE_LIFF_ID=<LIFF ID>
 LINE_LOGIN_CHANNEL_ID=<LINE Login channel ID>
 LINE_SESSION_SECRET=<至少 32 字元的獨立隨機值>
@@ -74,7 +74,15 @@ Demo seed 只允許在可安全清除的本機開發資料庫使用：`npm run s
 
 新員工報名完成後會建立高熵管理 token，資料庫只保存 SHA-256 hash。員工可從成功頁複製管理連結與 LINE 通知文字，或前往 `/booking/manage/<token>`。
 
-管理頁只顯示該筆報名的安全資訊、即時計算候補順位，並在 `BOOKING_CUTOFF_MINUTES` 截止前提供自助取消。取消使用 Serializable transaction、schedule row lock 及 idempotent 狀態檢查；正取取消後只遞補第一順位有效候補。
+管理頁只顯示該筆報名的安全資訊、即時計算候補順位，並在該車班的「報名／取消截止時間」前提供自助取消。取消使用 Serializable transaction、schedule row lock 及 idempotent 狀態檢查；正取取消後只遞補第一順位有效候補。
+
+### 車班截止時間
+
+- 新增車班與車班模板都必須設定截止規則，預設為「發車前一天 20:00」。
+- 管理介面使用原生時間選擇器並提供常用時段，不需要手動輸入冒號。
+- 模板保存「發車當日／前一天＋時間」；快速建立車班時，系統依指定服務日期換算為實際截止時間。
+- 發車當日截止時，截止時間必須早於發車時間。
+- migration 不改寫既有車班；舊車班若尚未有個別截止時間，才繼續使用 `BOOKING_CUTOFF_MINUTES` 相容規則。管理員編輯並儲存後即改用個別截止時間。
 
 既有 booking 的 token 欄位保持 `NULL`，資料與狀態不會被 migration 修改。GRO 可在後台預約名單逐筆建立或重設管理連結；重設後舊連結立即失效，token hash 不會顯示於後台。
 

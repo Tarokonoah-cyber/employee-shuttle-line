@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { logAudit } from "@/lib/booking-service";
-import { parseServiceDate } from "@/lib/dates";
+import { parseServiceDate, registrationDeadlineFromRule } from "@/lib/dates";
 import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 import { scheduleInputSchema } from "@/lib/schemas";
@@ -21,12 +21,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       await tx.$queryRaw`SELECT id FROM shuttle_schedules WHERE id = ${id} FOR UPDATE`;
       const oldValue = await tx.shuttleSchedule.findUnique({ where: { id } });
       if (!oldValue) throw new Error("找不到車班");
+      const serviceDate = parseServiceDate(input.serviceDate);
       const updated = await tx.shuttleSchedule.update({
         where: { id },
         data: {
-          serviceDate: parseServiceDate(input.serviceDate),
+          serviceDate,
           routeName: input.routeName,
           departureTime: input.departureTime,
+          registrationDeadline: registrationDeadlineFromRule(
+            serviceDate,
+            input.registrationCutoffDayOffset,
+            input.registrationCutoffTime,
+          ),
           pickupPoint: input.pickupPoint,
           capacity: input.capacity,
           registrationOpen: input.cancelled ? false : input.registrationOpen,

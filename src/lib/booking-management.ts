@@ -1,5 +1,5 @@
 import type { Booking, ShuttleSchedule } from "@prisma/client";
-import { bookingDeadline, displayDate } from "./dates";
+import { displayDate, resolveBookingDeadline } from "./dates";
 import { BusinessError, cancelBooking, logAudit } from "./booking-service";
 import { generateManagementToken, hashManagementToken, isManagementToken } from "./management-token";
 import { getPrisma } from "./prisma";
@@ -90,7 +90,7 @@ export function statusLineText(view: ManagedBookingView, manageUrl: string) {
 
 export async function toManagedView(booking: BookingWithSchedule, now = new Date()): Promise<ManagedBookingView> {
   const prisma = getPrisma();
-  const deadline = bookingDeadline(booking.schedule.serviceDate, booking.schedule.departureTime);
+  const deadline = resolveBookingDeadline(booking.schedule);
   let waitlistPosition: number | null = null;
 
   if (booking.status === "waitlist") {

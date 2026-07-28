@@ -36,48 +36,49 @@ enum NotificationStatus {
 }
 
 model ShuttleSchedule {
-  id               String             @id @default(cuid())
-  serviceDate      DateTime           @map("service_date") @db.Date
-  routeName        String             @map("route_name")
-  departureTime    String             @map("departure_time")
-  pickupPoint      String             @map("pickup_point")
-  capacity         Int
-  registrationOpen Boolean            @default(true) @map("registration_open")
-  waitlistEnabled  Boolean            @default(true) @map("waitlist_enabled")
-  note             String?
-  createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
-  cancelledAt      DateTime?          @map("cancelled_at")
-  bookings         Booking[]
+  id                   String    @id @default(cuid())
+  serviceDate          DateTime  @map("service_date") @db.Date
+  routeName            String    @map("route_name")
+  departureTime        String    @map("departure_time")
+  registrationDeadline DateTime? @map("registration_deadline")
+  pickupPoint          String    @map("pickup_point")
+  capacity             Int
+  registrationOpen     Boolean   @default(true) @map("registration_open")
+  waitlistEnabled      Boolean   @default(true) @map("waitlist_enabled")
+  note                 String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  cancelledAt          DateTime? @map("cancelled_at")
+  bookings             Booking[]
 
   @@index([serviceDate])
   @@map("shuttle_schedules")
 }
 
 model Booking {
-  id               String             @id @default(cuid())
-  scheduleId       String             @map("schedule_id")
-  schedule         ShuttleSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
-  employeeName     String             @map("employee_name")
-  department       String
-  employeeNo       String?            @map("employee_no")
-  phone            String?
-  status           BookingStatus
-  bookingCode      String             @unique @map("booking_code")
-  note             String?
-  adminOverride    Boolean            @default(false) @map("admin_override")
-  createdBy        BookingCreatedBy   @default(employee) @map("created_by")
-  identityKey      String             @map("identity_key")
-  createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
-  cancelledAt      DateTime?          @map("cancelled_at")
-  cancellationSource BookingCancellationSource? @map("cancellation_source")
-  promotedAt       DateTime?          @map("promoted_at")
-  managementTokenHash String?         @unique @map("management_token_hash")
-  managementTokenCreatedAt DateTime?  @map("management_token_created_at")
-  lineProfileId    String?            @map("line_profile_id")
-  lineProfile      LineUserProfile?   @relation(fields: [lineProfileId], references: [id], onDelete: SetNull)
-  notificationLogs NotificationLog[]
+  id                       String                     @id @default(cuid())
+  scheduleId               String                     @map("schedule_id")
+  schedule                 ShuttleSchedule            @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  employeeName             String                     @map("employee_name")
+  department               String
+  employeeNo               String?                    @map("employee_no")
+  phone                    String?
+  status                   BookingStatus
+  bookingCode              String                     @unique @map("booking_code")
+  note                     String?
+  adminOverride            Boolean                    @default(false) @map("admin_override")
+  createdBy                BookingCreatedBy           @default(employee) @map("created_by")
+  identityKey              String                     @map("identity_key")
+  createdAt                DateTime                   @default(now()) @map("created_at")
+  updatedAt                DateTime                   @updatedAt @map("updated_at")
+  cancelledAt              DateTime?                  @map("cancelled_at")
+  cancellationSource       BookingCancellationSource? @map("cancellation_source")
+  promotedAt               DateTime?                  @map("promoted_at")
+  managementTokenHash      String?                    @unique @map("management_token_hash")
+  managementTokenCreatedAt DateTime?                  @map("management_token_created_at")
+  lineProfileId            String?                    @map("line_profile_id")
+  lineProfile              LineUserProfile?           @relation(fields: [lineProfileId], references: [id], onDelete: SetNull)
+  notificationLogs         NotificationLog[]
 
   @@index([scheduleId, status])
   @@index([identityKey])
@@ -119,32 +120,34 @@ model AuditLog {
 }
 
 model NotificationLog {
-  id           String             @id @default(cuid())
-  bookingId    String?            @map("booking_id")
-  booking      Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  id           String              @id @default(cuid())
+  bookingId    String?             @map("booking_id")
+  booking      Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   channel      NotificationChannel
   target       String?
   message      String
-  status       NotificationStatus @default(pending)
-  errorMessage String?            @map("error_message")
-  sentAt       DateTime?          @map("sent_at")
-  createdAt    DateTime           @default(now()) @map("created_at")
+  status       NotificationStatus  @default(pending)
+  errorMessage String?             @map("error_message")
+  sentAt       DateTime?           @map("sent_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
 
   @@index([bookingId])
   @@map("notification_logs")
 }
 
 model ScheduleTemplate {
-  id              String   @id @default(cuid())
-  routeName       String   @map("route_name")
-  departureTime   String   @map("departure_time")
-  pickupPoint     String   @map("pickup_point")
-  defaultCapacity Int      @map("default_capacity")
-  waitlistEnabled Boolean  @default(true) @map("waitlist_enabled")
-  note            String?
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                          String   @id @default(cuid())
+  routeName                   String   @map("route_name")
+  departureTime               String   @map("departure_time")
+  registrationCutoffDayOffset Int      @default(1) @map("registration_cutoff_day_offset")
+  registrationCutoffTime      String   @default("20:00") @map("registration_cutoff_time")
+  pickupPoint                 String   @map("pickup_point")
+  defaultCapacity             Int      @map("default_capacity")
+  waitlistEnabled             Boolean  @default(true) @map("waitlist_enabled")
+  note                        String?
+  active                      Boolean  @default(true)
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
 
   @@index([active])
   @@map("schedule_templates")

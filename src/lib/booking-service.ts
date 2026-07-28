@@ -1,5 +1,5 @@
 import { Prisma, type Booking, type ShuttleSchedule } from "@prisma/client";
-import { bookingDeadline } from "./dates";
+import { resolveBookingDeadline } from "./dates";
 import { buildIdentityKey, generateBookingCode } from "./identity";
 import { generateManagementToken, hashManagementToken } from "./management-token";
 import { queueGroBookingNotifications } from "./line-notification";
@@ -115,7 +115,7 @@ export function decorateScheduleRows<T extends ShuttleSchedule>(schedules: T[], 
 
     if (departureTime !== "--:--") {
       try {
-        registrationDeadline = bookingDeadline(schedule.serviceDate, departureTime);
+        registrationDeadline = resolveBookingDeadline(schedule);
         isRegistrationClosedByTime = now.getTime() >= registrationDeadline.getTime();
       } catch {
         registrationDeadline = new Date(0);
@@ -185,7 +185,7 @@ async function createBookingInTransaction(
     throw new BusinessError("此車班已取消");
   }
 
-  if (input.createdBy === "employee" && Date.now() >= bookingDeadline(schedule.serviceDate, schedule.departureTime).getTime()) {
+  if (input.createdBy === "employee" && Date.now() >= resolveBookingDeadline(schedule).getTime()) {
     throw new BusinessError("此車班已超過報名截止時間");
   }
 
@@ -357,7 +357,7 @@ export async function cancelBooking(
           if (options.enforceDeadline && booking.schedule.cancelledAt) {
             throw new BusinessError("此班次已取消，無法再取消報名", 409);
           }
-          if (options.enforceDeadline && now.getTime() >= bookingDeadline(booking.schedule.serviceDate, booking.schedule.departureTime).getTime()) {
+          if (options.enforceDeadline && now.getTime() >= resolveBookingDeadline(booking.schedule).getTime()) {
             throw new BusinessError("已超過可取消時間", 409);
           }
 

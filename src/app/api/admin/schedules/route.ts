@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { decorateSchedules, logAudit } from "@/lib/booking-service";
-import { parseServiceDate } from "@/lib/dates";
+import { parseServiceDate, registrationDeadlineFromRule } from "@/lib/dates";
 import { jsonError, requireAdminApi } from "@/lib/http";
 import { getPrisma } from "@/lib/prisma";
 import { scheduleInputSchema } from "@/lib/schemas";
@@ -43,11 +43,17 @@ export async function POST(request: Request) {
     const input = scheduleInputSchema.parse(await request.json());
     const prisma = getPrisma();
     const schedule = await prisma.$transaction(async (tx) => {
+      const serviceDate = parseServiceDate(input.serviceDate);
       const created = await tx.shuttleSchedule.create({
         data: {
-          serviceDate: parseServiceDate(input.serviceDate),
+          serviceDate,
           routeName: input.routeName,
           departureTime: input.departureTime,
+          registrationDeadline: registrationDeadlineFromRule(
+            serviceDate,
+            input.registrationCutoffDayOffset,
+            input.registrationCutoffTime,
+          ),
           pickupPoint: input.pickupPoint,
           capacity: input.capacity,
           registrationOpen: input.registrationOpen,

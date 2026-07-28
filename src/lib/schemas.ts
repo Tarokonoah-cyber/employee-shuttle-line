@@ -1,4 +1,8 @@
 ﻿import { z } from "zod";
+import {
+  DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET,
+  DEFAULT_REGISTRATION_CUTOFF_TIME,
+} from "./dates";
 import { normalizeDepartureTime } from "./schedule-time";
 
 const optionalText = z
@@ -27,6 +31,29 @@ const departureTimeInput = z
     return normalized;
   });
 
+const registrationCutoffFields = {
+  registrationCutoffDayOffset: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(1)
+    .default(DEFAULT_REGISTRATION_CUTOFF_DAY_OFFSET),
+  registrationCutoffTime: departureTimeInput.default(DEFAULT_REGISTRATION_CUTOFF_TIME),
+};
+
+function cutoffBeforeDeparture(
+  input: { departureTime: string; registrationCutoffDayOffset: number; registrationCutoffTime: string },
+  ctx: z.RefinementCtx,
+) {
+  if (input.registrationCutoffDayOffset === 0 && input.registrationCutoffTime >= input.departureTime) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["registrationCutoffTime"],
+      message: "發車當日的截止時間必須早於發車時間",
+    });
+  }
+}
+
 export const bookingInputSchema = z.object({
   scheduleId: z.string().min(1, "請選擇車班"),
   employeeName: z.string().trim().min(1, "請填寫姓名").max(80, "姓名過長"),
@@ -44,23 +71,25 @@ export const scheduleInputSchema = z.object({
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式需為 YYYY-MM-DD"),
   routeName: z.string().trim().min(1, "請填寫車班名稱"),
   departureTime: departureTimeInput,
+  ...registrationCutoffFields,
   pickupPoint: z.string().trim().min(1, "請填寫上車點"),
   capacity: z.coerce.number().int().min(1, "名額至少為 1"),
   registrationOpen: z.boolean().optional().default(true),
   waitlistEnabled: z.boolean().optional().default(true),
   cancelled: z.boolean().optional().default(false),
   note: optionalText,
-});
+}).superRefine(cutoffBeforeDeparture);
 
 export const templateInputSchema = z.object({
   routeName: z.string().trim().min(1, "請填寫範本名稱"),
   departureTime: departureTimeInput,
+  ...registrationCutoffFields,
   pickupPoint: z.string().trim().min(1, "請填寫上車點"),
   defaultCapacity: z.coerce.number().int().min(1, "預設名額至少為 1"),
   waitlistEnabled: z.boolean().optional().default(true),
   note: optionalText,
   active: z.boolean().optional().default(true),
-});
+}).superRefine(cutoffBeforeDeparture);
 
 export const updateBookingSchema = z.object({
   employeeName: z.string().trim().min(1, "請填寫姓名").optional(),
