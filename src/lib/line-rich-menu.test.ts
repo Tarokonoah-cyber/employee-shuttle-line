@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { buildLineRichMenu, resolveLineRichMenuUrls } from "./line-rich-menu";
 
@@ -40,4 +42,28 @@ test("menu contains only the four employee-facing actions", () => {
     "我的報修",
     "我的員工車報名",
   ]);
+});
+
+test("rich menu artwork uses large bilingual labels without descriptive copy", () => {
+  const artwork = readFileSync(resolve("assets/line-rich-menu-taroko.svg"), "utf8");
+  for (const label of [
+    "工程 / IT 報修",
+    "ENGINEERING / IT REPAIR",
+    "員工車登記",
+    "SHUTTLE BOOKING",
+    "我的報修",
+    "MY REPAIR REQUESTS",
+    "我的員工車報名",
+    "MY SHUTTLE BOOKINGS",
+  ]) {
+    assert.match(artwork, new RegExp(label.replace("/", "\\/")));
+  }
+  assert.doesNotMatch(artwork, /class="desc"|class="cta"|開始報修|開啟登記|查看案件|管理報名/);
+});
+
+test("rich menu PNG keeps LINE's required dimensions and file limit", () => {
+  const image = readFileSync(resolve("public/line/rich-menu-taroko.png"));
+  assert.equal(image.readUInt32BE(16), 2500);
+  assert.equal(image.readUInt32BE(20), 1686);
+  assert.ok(image.byteLength < 1_000_000);
 });

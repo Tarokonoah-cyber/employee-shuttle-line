@@ -22,6 +22,7 @@ const LINE_PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/push";
 const LINE_PUSH_TIMEOUT_MS = 2_000;
 const MAX_SEND_ATTEMPTS = 3;
 const LINE_TARGET_PATTERN = /^[UCR][0-9a-f]{32}$/i;
+const LINE_ACTION_LINE_PATTERN = /\n(查看名單|查看報名)：(https:\/\/\S+)$/;
 
 function optionalLineLink(view: "my-bookings" | "admin-bookings", schedule?: ScheduleForCancellation) {
   if (view === "my-bookings") {
@@ -94,32 +95,53 @@ async function effectiveGroNotificationTargets(tx: Tx) {
 
 export function buildGroBookingMessage(booking: BookingForGro) {
   const status = booking.status === "waitlist" ? "候補" : "正取";
-  const employeeNo = booking.employeeNo ? `\n員工編號：${booking.employeeNo}` : "";
-  const phone = booking.phone ? `\n電話：${booking.phone}` : "";
+  const employeeMeta = [booking.department, booking.employeeNo].filter(Boolean).join("・");
+  const pickupMeta = [booking.schedule.pickupPoint, booking.phone].filter(Boolean).join("｜");
   const adminUrl = optionalLineLink("admin-bookings", booking.schedule);
 
   return [
-    "【員工車新預約】",
-    `日期：${displayDate(booking.schedule.serviceDate)}`,
-    `班次：${booking.schedule.departureTime} ${booking.schedule.routeName}`,
-    `上車點：${booking.schedule.pickupPoint}`,
-    `姓名：${booking.employeeName}`,
-    `部門：${booking.department}${employeeNo}${phone}`,
-    `狀態：${status}`,
-    `預約編號：${booking.bookingCode}`,
-    adminUrl ? `後台名單：${adminUrl}` : null,
+    `【員工車｜新預約・${status}】`,
+    `${displayDate(booking.schedule.serviceDate)} ${booking.schedule.departureTime}｜${booking.schedule.routeName}`,
+    `${booking.employeeName}${employeeMeta ? `｜${employeeMeta}` : ""}`,
+    `上車：${pickupMeta}`,
+    adminUrl ? `查看名單：${adminUrl}` : null,
   ].filter(Boolean).join("\n");
 }
 
 export function buildScheduleCancellationMessage(schedule: ScheduleForCancellation) {
   const myBookingsUrl = optionalLineLink("my-bookings");
   return [
-    "【員工車班次取消通知】",
-    `您預約的 ${displayDate(schedule.serviceDate)} ${schedule.departureTime} ${schedule.routeName} 已取消。`,
-    `原上車點：${schedule.pickupPoint}`,
-    "您無須再自行取消；如需改搭其他班次，請重新登記。",
-    myBookingsUrl ? `我的員工車報名：${myBookingsUrl}` : null,
+    "【員工車｜班次取消】",
+    `${displayDate(schedule.serviceDate)} ${schedule.departureTime}｜${schedule.routeName}`,
+    `上車：${schedule.pickupPoint}`,
+    "已自動取消，請改選其他班次。",
+    myBookingsUrl ? `查看報名：${myBookingsUrl}` : null,
   ].filter(Boolean).join("\n");
+}
+
+export function buildLineTextMessage(message: string) {
+  const actionLine = message.match(LINE_ACTION_LINE_PATTERN);
+  if (!actionLine || actionLine.index === undefined) {
+    return { type: "text" as const, text: message };
+  }
+
+  const [, label, uri] = actionLine;
+  return {
+    type: "text" as const,
+    text: message.slice(0, actionLine.index),
+    quickReply: {
+      items: [
+        {
+          type: "action" as const,
+          action: {
+            type: "uri" as const,
+            label,
+            uri,
+          },
+        },
+      ],
+    },
+  };
 }
 
 export async function queueGroBookingNotifications(tx: Tx, booking: BookingForGro) {
@@ -223,7 +245,7 @@ export async function sendLinePush(
         },
         body: JSON.stringify({
           to: input.target,
-          messages: [{ type: "text", text: input.message }],
+          messages: [buildLineTextMessage(input.message)],
           notificationDisabled: false,
         }),
         cache: "no-store",

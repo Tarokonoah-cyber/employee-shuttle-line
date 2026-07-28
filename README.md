@@ -112,7 +112,7 @@ https://line-repair-vercel.vercel.app/api/line/webhook
 
 ### Rich Menu 四格動作
 
-Rich Menu 圖為 `public/line/rich-menu-taroko.png`（2500 × 1686、2 欄 × 2 列），可編輯來源為 `assets/line-rich-menu-taroko.svg`。介面只保留四個最常用的員工功能，各格和 API 點擊區座標完全對齊：
+Rich Menu 圖為 `public/line/rich-menu-taroko.png`（2500 × 1686、2 欄 × 2 列），可編輯來源為 `assets/line-rich-menu-taroko.svg`。介面只保留四個最常用的員工功能，以大型中英文標題呈現，不放說明句或重複的操作按鈕；各格和 API 點擊區座標完全對齊：
 
 | 位置 | 按鈕 | LINE 動作 | 最終入口 |
 | --- | --- | --- | --- |
@@ -176,8 +176,10 @@ LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 
 ### 員工車 LINE 自動通知
 
 - USER 預約完成後，資料庫交易先完成並立即回應；GRO 推播在回應送出後執行，不會等待 LINE API 才顯示預約成功。
+- 新預約通知只保留狀態、班次、員工與上車資訊四行；後台長網址不顯示在訊息內，改由 LINE 原生「查看名單」快捷按鈕開啟。
 - 後台「系統 → LINE 通知管理」可把一位或多位已驗證 LINE 使用者設為 GRO 通知管理員。第一次勾選後，收件人改由後台名單控制；取消最後一位時會明確顯示目前沒有收件人，也可切回 Railway 備援設定。
 - 管理員把班次由正常改為取消時，系統只在該次取消狀態轉換觸發通知，對當下仍為正取或候補且有驗證 LINE 身分的 USER 逐一推播。
+- 班次取消通知同樣採四行短版，已預約 USER 可由「查看報名」快捷按鈕直接回到個人報名頁。
 - LINE 推播使用既有官方帳號的 Messaging API，不新增 webhook，也不改動現有報修 webhook。LINE Login 與 Messaging API channel 必須位於同一 Provider，兩邊 userId 才能對應。
 - 每筆推播先寫入 `notification_logs`；傳送使用固定 retry key，暫時性錯誤最多重試三次，成功或失敗均會留下紀錄。USER 封鎖官方帳號時，LINE 可能回應成功但實際不送達。
 - 所有瀏覽器資料請求、表單送出與 LIFF 身分初始化都在 2.8 秒內結束 loading；超時會顯示可重試錯誤。LINE token 驗證的伺服器外部請求限制為 1.8 秒，LINE 推播限制為每次 2 秒且在回應後執行。

@@ -1,30 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2500" height="1686" viewBox="0 0 2500 1686">
   <defs>
     <linearGradient id="ivoryTop" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbf8f1"/>
+      <stop offset="0" stop-color="#fffdf8"/>
       <stop offset="1" stop-color="#eee7dc"/>
     </linearGradient>
     <linearGradient id="ivoryBottom" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#eee9df"/>
-      <stop offset="1" stop-color="#e3ddd2"/>
+      <stop offset="0" stop-color="#f7f2e9"/>
+      <stop offset="1" stop-color="#e8e0d4"/>
     </linearGradient>
     <linearGradient id="greenTop" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#164f4b"/>
-      <stop offset="1" stop-color="#0b3d3b"/>
+      <stop offset="0" stop-color="#155954"/>
+      <stop offset="1" stop-color="#083d3a"/>
     </linearGradient>
     <linearGradient id="greenBottom" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0d4441"/>
-      <stop offset="1" stop-color="#073331"/>
+      <stop offset="0" stop-color="#104d49"/>
+      <stop offset="1" stop-color="#062f2d"/>
     </linearGradient>
-    <pattern id="grain" width="30" height="30" patternUnits="userSpaceOnUse">
-      <circle cx="4" cy="6" r="1" fill="#173f3b" opacity=".028"/>
-      <circle cx="21" cy="19" r="1" fill="#ffffff" opacity=".025"/>
+    <pattern id="grain" width="34" height="34" patternUnits="userSpaceOnUse">
+      <circle cx="5" cy="8" r="1.2" fill="#173f3b" opacity=".026"/>
+      <circle cx="24" cy="22" r="1" fill="#ffffff" opacity=".022"/>
     </pattern>
     <style>
-      .title{font:700 78px "Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif;letter-spacing:1px}
-      .desc{font:500 34px "Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif;letter-spacing:1px}
-      .cta{font:700 31px "Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif;letter-spacing:1px}
-      .icon{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:15}
+      .zh {
+        font: 800 116px "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif;
+        letter-spacing: 2px;
+      }
+      .zh-long {
+        font: 800 104px "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif;
+        letter-spacing: 1px;
+      }
+      .en {
+        font: 700 54px Arial, Helvetica, sans-serif;
+        letter-spacing: 4px;
+      }
+      .icon {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 16;
+      }
     </style>
   </defs>
 
@@ -35,87 +49,65 @@
   <rect width="2500" height="1686" fill="url(#grain)"/>
 
   <g fill="none" stroke-width="4">
-    <path d="M-100 640c270-230 485 140 755-62s420-150 690 12" stroke="#315e58" opacity=".09"/>
-    <path d="M-90 700c285-220 495 145 775-55s430-130 660 28" stroke="#315e58" opacity=".065"/>
-    <path d="M1160 184c275-205 475 145 760-35s430-125 690 28" stroke="#d7c7ac" opacity=".12"/>
-    <path d="M1160 244c300-195 500 145 780-24s420-110 670 48" stroke="#d7c7ac" opacity=".08"/>
-    <path d="M-80 1470c290-225 500 145 775-42s410-140 655 12" stroke="#315e58" opacity=".08"/>
-    <path d="M1160 1495c300-220 505 150 785-35s420-118 660 34" stroke="#d7c7ac" opacity=".1"/>
+    <path d="M-90 690c300-205 490 115 760-60s420-145 680 20" stroke="#315e58" opacity=".07"/>
+    <path d="M1160 205c275-195 475 130 760-38s430-120 690 26" stroke="#efd6ad" opacity=".11"/>
+    <path d="M-80 1530c290-210 500 125 775-48s410-125 655 8" stroke="#315e58" opacity=".065"/>
+    <path d="M1160 1510c300-210 505 135 785-42s420-110 660 30" stroke="#efd6ad" opacity=".09"/>
   </g>
 
   <!-- 工程／IT 報修 -->
-  <g transform="translate(96 0)" fill="#123f3c">
-    <rect x="0" y="104" width="232" height="232" rx="58" fill="#123f3c"/>
-    <g class="icon" stroke="#f2c48f" transform="translate(16 120)">
-      <rect x="30" y="60" width="170" height="112" rx="24"/>
-      <path d="M76 60V39c0-12 9-21 21-21h36c12 0 21 9 21 21v21"/>
-      <path d="M30 106h170M96 106v31h38v-31"/>
+  <g transform="translate(0 0)" fill="#103f3c">
+    <rect x="523" y="86" width="204" height="204" rx="52" fill="#103f3c"/>
+    <g class="icon" stroke="#f4c88f" transform="translate(523 86)">
+      <rect x="32" y="68" width="140" height="96" rx="22"/>
+      <path d="M70 68V47c0-11 9-20 20-20h24c11 0 20 9 20 20v21"/>
+      <path d="M32 109h140M82 109v28h40v-28"/>
     </g>
-    <rect x="0" y="412" width="62" height="6" rx="3" fill="#b76f43"/>
-    <text class="title" x="0" y="514">工程／IT 報修</text>
-    <text class="desc" x="0" y="580" fill="#5e6863">設備異常、工程需求，一次完成回報</text>
-    <g transform="translate(0 663)">
-      <rect width="212" height="72" rx="36" fill="#123f3c"/>
-      <text class="cta" x="34" y="48" fill="#fffaf0">開始報修</text>
-      <path d="m172 28 12 8-12 8" fill="none" stroke="#f2c48f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
+    <rect x="585" y="344" width="80" height="8" rx="4" fill="#ba7549"/>
+    <text class="zh" x="625" y="520" text-anchor="middle">工程 / IT 報修</text>
+    <text class="en" x="625" y="624" text-anchor="middle" fill="#52645f">ENGINEERING / IT REPAIR</text>
   </g>
 
   <!-- 員工車登記 -->
-  <g transform="translate(1346 0)" fill="#fffaf0">
-    <rect x="0" y="104" width="232" height="232" rx="58" fill="#f2c48f"/>
-    <g class="icon" stroke="#123f3c" transform="translate(16 120)">
-      <rect x="28" y="33" width="174" height="142" rx="35"/>
-      <path d="M28 116h174M64 175v23m102-23v23M67 70h96"/>
-      <circle cx="70" cy="145" r="10" fill="#123f3c" stroke="none"/>
-      <circle cx="160" cy="145" r="10" fill="#123f3c" stroke="none"/>
+  <g transform="translate(1250 0)" fill="#fffaf0">
+    <rect x="523" y="86" width="204" height="204" rx="52" fill="#f4c88f"/>
+    <g class="icon" stroke="#103f3c" transform="translate(523 86)">
+      <rect x="31" y="33" width="142" height="124" rx="31"/>
+      <path d="M31 103h142M63 157v21m78-21v21M67 66h70"/>
+      <circle cx="67" cy="132" r="9" fill="#103f3c" stroke="none"/>
+      <circle cx="137" cy="132" r="9" fill="#103f3c" stroke="none"/>
     </g>
-    <rect x="0" y="412" width="62" height="6" rx="3" fill="#f2c48f"/>
-    <text class="title" x="0" y="514">員工車登記</text>
-    <text class="desc" x="0" y="580" fill="#cbdad5">查看可搭班次，立即完成報名</text>
-    <g transform="translate(0 663)">
-      <rect width="212" height="72" rx="36" fill="#f2c48f"/>
-      <text class="cta" x="34" y="48" fill="#123f3c">開啟登記</text>
-      <path d="m172 28 12 8-12 8" fill="none" stroke="#123f3c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
+    <rect x="585" y="344" width="80" height="8" rx="4" fill="#f4c88f"/>
+    <text class="zh" x="625" y="520" text-anchor="middle">員工車登記</text>
+    <text class="en" x="625" y="624" text-anchor="middle" fill="#d8e5df">SHUTTLE BOOKING</text>
   </g>
 
   <!-- 我的報修 -->
-  <g transform="translate(96 843)" fill="#123f3c">
-    <rect x="0" y="104" width="232" height="232" rx="58" fill="#123f3c"/>
-    <g class="icon" stroke="#f2c48f" transform="translate(16 120)">
-      <rect x="40" y="29" width="150" height="166" rx="24"/>
-      <path d="M84 29v-9h62v9M75 82h80M75 119h80M75 156h42"/>
-      <path d="m139 153 16 16 34-38"/>
+  <g transform="translate(0 843)" fill="#103f3c">
+    <rect x="523" y="86" width="204" height="204" rx="52" fill="#103f3c"/>
+    <g class="icon" stroke="#f4c88f" transform="translate(523 86)">
+      <rect x="42" y="27" width="124" height="150" rx="22"/>
+      <path d="M77 27v-9h54v9M72 75h64M72 109h64M72 143h31"/>
+      <path d="m115 139 15 15 31-35"/>
     </g>
-    <rect x="0" y="412" width="62" height="6" rx="3" fill="#b76f43"/>
-    <text class="title" x="0" y="514">我的報修</text>
-    <text class="desc" x="0" y="580" fill="#5e6863">查詢案件、補充資料、掌握處理進度</text>
-    <g transform="translate(0 663)">
-      <rect width="212" height="72" rx="36" fill="#123f3c"/>
-      <text class="cta" x="34" y="48" fill="#fffaf0">查看案件</text>
-      <path d="m172 28 12 8-12 8" fill="none" stroke="#f2c48f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
+    <rect x="585" y="344" width="80" height="8" rx="4" fill="#ba7549"/>
+    <text class="zh" x="625" y="520" text-anchor="middle">我的報修</text>
+    <text class="en" x="625" y="624" text-anchor="middle" fill="#52645f">MY REPAIR REQUESTS</text>
   </g>
 
   <!-- 我的員工車報名 -->
-  <g transform="translate(1346 843)" fill="#fffaf0">
-    <rect x="0" y="104" width="232" height="232" rx="58" fill="#f2c48f"/>
-    <g class="icon" stroke="#123f3c" transform="translate(16 120)">
-      <rect x="24" y="44" width="182" height="137" rx="26"/>
-      <path d="M24 87h182M62 181v19m106-19v19M69 64h92"/>
-      <circle cx="68" cy="146" r="9" fill="#123f3c" stroke="none"/>
-      <path d="m124 141 16 16 35-39"/>
+  <g transform="translate(1250 843)" fill="#fffaf0">
+    <rect x="523" y="86" width="204" height="204" rx="52" fill="#f4c88f"/>
+    <g class="icon" stroke="#103f3c" transform="translate(523 86)">
+      <rect x="29" y="40" width="146" height="119" rx="27"/>
+      <path d="M29 82h146M62 159v20m80-20v20M67 61h70"/>
+      <circle cx="64" cy="129" r="8" fill="#103f3c" stroke="none"/>
+      <path d="m107 126 14 14 30-34"/>
     </g>
-    <rect x="0" y="412" width="62" height="6" rx="3" fill="#f2c48f"/>
-    <text class="title" x="0" y="514">我的員工車報名</text>
-    <text class="desc" x="0" y="580" fill="#cbdad5">查看狀態，管理或取消已報名班次</text>
-    <g transform="translate(0 663)">
-      <rect width="212" height="72" rx="36" fill="#f2c48f"/>
-      <text class="cta" x="34" y="48" fill="#123f3c">管理報名</text>
-      <path d="m172 28 12 8-12 8" fill="none" stroke="#123f3c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
+    <rect x="585" y="344" width="80" height="8" rx="4" fill="#f4c88f"/>
+    <text class="zh-long" x="625" y="520" text-anchor="middle">我的員工車報名</text>
+    <text class="en" x="625" y="624" text-anchor="middle" fill="#d8e5df">MY SHUTTLE BOOKINGS</text>
   </g>
 
-  <path d="M1250 0v1686M0 843h2500" stroke="#d8c39d" stroke-width="5" opacity=".7"/>
+  <path d="M1250 0v1686M0 843h2500" stroke="#d8c39d" stroke-width="6" opacity=".75"/>
 </svg>

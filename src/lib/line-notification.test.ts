@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildGroBookingMessage,
+  buildLineTextMessage,
   buildScheduleCancellationMessage,
   groNotificationTargets,
   lineNotificationReadiness,
@@ -48,7 +49,7 @@ test("LINE readiness reports the active admin-managed recipient count", () => {
   assert.equal(readiness.groTargetCount, 2);
 });
 
-test("new-booking notice contains the operational fields GRO needs", () => {
+test("new-booking notice is compact and keeps the operational fields GRO needs", () => {
   const message = buildGroBookingMessage({
     id: "booking_1",
     bookingCode: "BK123456",
@@ -66,16 +67,16 @@ test("new-booking notice contains the operational fields GRO needs", () => {
     },
   });
 
-  assert.match(message, /【員工車新預約】/);
-  assert.match(message, /2026-07-28/);
-  assert.match(message, /07:30 太魯閣線/);
-  assert.match(message, /王小明/);
-  assert.match(message, /房務部/);
-  assert.match(message, /正取/);
-  assert.match(message, /BK123456/);
+  assert.equal(message, [
+    "【員工車｜新預約・正取】",
+    "2026-07-28 07:30｜太魯閣線",
+    "王小明｜房務部・E001",
+    "上車：員工宿舍｜0912345678",
+  ].join("\n"));
+  assert.equal(message.includes("預約編號"), false);
 });
 
-test("schedule cancellation notice is explicit and does not ask the user to cancel again", () => {
+test("schedule cancellation notice is compact and explicit", () => {
   const message = buildScheduleCancellationMessage({
     id: "schedule_1",
     serviceDate: new Date("2026-07-28T00:00:00.000Z"),
@@ -84,9 +85,35 @@ test("schedule cancellation notice is explicit and does not ask the user to canc
     pickupPoint: "員工宿舍",
   });
 
-  assert.match(message, /【員工車班次取消通知】/);
-  assert.match(message, /已取消/);
-  assert.match(message, /無須再自行取消/);
+  assert.equal(message, [
+    "【員工車｜班次取消】",
+    "2026-07-28 07:30｜太魯閣線",
+    "上車：員工宿舍",
+    "已自動取消，請改選其他班次。",
+  ].join("\n"));
+});
+
+test("LINE action links become compact URI quick replies", () => {
+  const message = buildLineTextMessage([
+    "【員工車｜新預約・正取】",
+    "2026-07-28 07:30｜太魯閣線",
+    "查看名單：https://example.com/admin/bookings?schedule_id=schedule_1",
+  ].join("\n"));
+
+  assert.deepEqual(message, {
+    type: "text",
+    text: "【員工車｜新預約・正取】\n2026-07-28 07:30｜太魯閣線",
+    quickReply: {
+      items: [{
+        type: "action",
+        action: {
+          type: "uri",
+          label: "查看名單",
+          uri: "https://example.com/admin/bookings?schedule_id=schedule_1",
+        },
+      }],
+    },
+  });
 });
 
 test("LINE retry key is deterministic and UUID-shaped", () => {
