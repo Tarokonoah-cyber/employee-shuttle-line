@@ -132,6 +132,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "確認",
+  cancelLabel = "返回",
   danger = false,
   loading = false,
   onConfirm,
@@ -141,6 +142,7 @@ export function ConfirmDialog({
   title: string;
   description: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   danger?: boolean;
   loading?: boolean;
   onConfirm: () => void | Promise<void>;
@@ -160,7 +162,7 @@ export function ConfirmDialog({
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
-            <Dialog.Close asChild><Button type="button" disabled={loading}>返回</Button></Dialog.Close>
+            <Dialog.Close asChild><Button type="button" disabled={loading}>{cancelLabel}</Button></Dialog.Close>
             <Button type="button" variant={danger ? "danger" : "primary"} loading={loading} onClick={onConfirm}>{confirmLabel}</Button>
           </div>
         </Dialog.Content>

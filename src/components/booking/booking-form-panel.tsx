@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
 import { Clock3, Loader2, MapPin, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { useLanguage } from "@/components/i18n/language-provider";
 import type { Schedule } from "./types";
 import type { LineProfileView } from "@/lib/line-profile-view";
 
@@ -27,20 +28,23 @@ function FormField({
   optional?: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useLanguage();
+
   return (
     <label htmlFor={name} className="block">
       <span className="mb-1.5 flex items-center justify-between text-sm font-semibold text-stone-800">
         {label}
-        {optional && <span className="text-xs font-normal text-stone-500">選填</span>}
+        {optional && <span className="text-xs font-normal text-stone-500">{t("common.optional")}</span>}
       </span>
       {children}
-      {required && <span className="sr-only">必填</span>}
+      {required && <span className="sr-only">{t("common.required")}</span>}
     </label>
   );
 }
 
 export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, onClose, profile }: BookingFormPanelProps) {
-  const [requiredErrors, setRequiredErrors] = useState({ employeeName: "", department: "" });
+  const { t } = useLanguage();
+  const [requiredErrors, setRequiredErrors] = useState({ employeeName: false, department: false });
   const disabled = !schedule || submitting;
   const isWaitlist = Boolean(schedule?.isFull && schedule.waitlistEnabled);
 
@@ -48,8 +52,8 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const nextErrors = {
-      employeeName: String(formData.get("employeeName") ?? "").trim() ? "" : "請填寫員工姓名",
-      department: String(formData.get("department") ?? "").trim() ? "" : "請填寫部門",
+      employeeName: !String(formData.get("employeeName") ?? "").trim(),
+      department: !String(formData.get("department") ?? "").trim(),
     };
 
     setRequiredErrors(nextErrors);
@@ -66,7 +70,7 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
 
   function clearRequiredError(name: "employeeName" | "department") {
     if (!requiredErrors[name]) return;
-    setRequiredErrors((current) => ({ ...current, [name]: "" }));
+    setRequiredErrors((current) => ({ ...current, [name]: false }));
   }
 
   return (
@@ -79,15 +83,15 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
     >
       <div className="flex items-start justify-between border-b border-stone-200 px-5 py-4">
         <div>
-          <p className="text-xs font-semibold text-emerald-800">步驟 2</p>
-          <h2 className="mt-0.5 text-xl font-bold text-stone-950">填寫登記資料</h2>
+          <p className="text-xs font-semibold text-emerald-800">{t("form.step")}</p>
+          <h2 className="mt-0.5 text-xl font-bold text-stone-950">{t("form.title")}</h2>
         </div>
         {mode === "mobile" && (
           <button
             type="button"
             className="grid h-10 w-10 place-items-center rounded-[6px] text-stone-500 hover:bg-stone-100"
             onClick={onClose}
-            aria-label="關閉登記表單"
+            aria-label={t("form.closeAria")}
           >
             <X size={21} aria-hidden="true" />
           </button>
@@ -107,10 +111,10 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
                   <span className="flex items-center gap-1"><Clock3 size={14} />{schedule.serviceDate.slice(0, 10)}</span>
                   <span className="flex items-center gap-1"><MapPin size={14} />{schedule.pickupPoint}</span>
                 </div>
-                {isWaitlist && <p className="mt-2 text-sm font-semibold text-red-700">此班已額滿，送出後將加入候補。</p>}
+                {isWaitlist && <p className="mt-2 text-sm font-semibold text-red-700">{t("form.waitlistWarning")}</p>}
               </>
             ) : (
-              <p className="text-sm text-stone-600">請先從左側選擇車班。</p>
+              <p className="text-sm text-stone-600">{t("form.selectFirst")}</p>
             )}
           </div>
 
@@ -122,11 +126,15 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
 
           {profile && (
             <div className="rounded-[6px] border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm leading-6 text-emerald-900">
-              已驗證 LINE 身分{profile.lineDisplayName ? `：${profile.lineDisplayName}` : ""}。系統會記住本次資料，下次使用同一個 LINE 帳號開啟時自動帶入。
+              {t("form.lineVerified", {
+                name: profile.lineDisplayName
+                  ? ` (${profile.lineDisplayName})`
+                  : "",
+              })}
             </div>
           )}
 
-          <FormField label="員工姓名" name={`${mode}-employeeName`} required>
+          <FormField label={t("form.employeeName")} name={`${mode}-employeeName`} required>
             <input
               id={`${mode}-employeeName`}
               name="employeeName"
@@ -141,11 +149,11 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
             />
             {requiredErrors.employeeName && (
               <span id={`${mode}-employeeName-error`} className="mt-1.5 block text-sm font-medium text-red-700">
-                {requiredErrors.employeeName}
+                {t("form.employeeNameRequired")}
               </span>
             )}
           </FormField>
-          <FormField label="部門" name={`${mode}-department`} required>
+          <FormField label={t("form.department")} name={`${mode}-department`} required>
             <input
               id={`${mode}-department`}
               name="department"
@@ -159,14 +167,14 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
             />
             {requiredErrors.department && (
               <span id={`${mode}-department-error`} className="mt-1.5 block text-sm font-medium text-red-700">
-                {requiredErrors.department}
+                {t("form.departmentRequired")}
               </span>
             )}
           </FormField>
-          <FormField label="員工編號" name={`${mode}-employeeNo`} optional>
+          <FormField label={t("form.employeeNo")} name={`${mode}-employeeNo`} optional>
             <input id={`${mode}-employeeNo`} name="employeeNo" className="field min-h-12" autoComplete="off" defaultValue={profile?.employeeNo ?? ""} disabled={disabled} />
           </FormField>
-          <FormField label="手機" name={`${mode}-phone`} optional>
+          <FormField label={t("form.phone")} name={`${mode}-phone`} optional>
             <input
               id={`${mode}-phone`}
               name="phone"
@@ -178,17 +186,17 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
               disabled={disabled}
             />
           </FormField>
-          <FormField label="上車點" name={`${mode}-pickupPoint`}>
+          <FormField label={t("form.pickupPoint")} name={`${mode}-pickupPoint`}>
             <input
               id={`${mode}-pickupPoint`}
               className="field min-h-12 bg-stone-100"
-              value={schedule?.pickupPoint ?? profile?.defaultPickupLocation ?? "請先選擇車班"}
+              value={schedule?.pickupPoint ?? profile?.defaultPickupLocation ?? t("form.pickupPlaceholder")}
               readOnly
               aria-describedby={`${mode}-pickupPoint-help`}
             />
-            <span id={`${mode}-pickupPoint-help`} className="mt-1.5 block text-xs leading-5 text-stone-500">上車點依所選車班設定，送出後會記為常用上車點。</span>
+            <span id={`${mode}-pickupPoint-help`} className="mt-1.5 block text-xs leading-5 text-stone-500">{t("form.pickupHelp")}</span>
           </FormField>
-          <FormField label="備註" name={`${mode}-note`} optional>
+          <FormField label={t("form.note")} name={`${mode}-note`} optional>
             <textarea id={`${mode}-note`} name="note" className="field min-h-20 resize-y" disabled={disabled} />
           </FormField>
         </div>
@@ -196,9 +204,9 @@ export function BookingFormPanel({ schedule, error, submitting, onSubmit, mode, 
         <div className="mt-auto shrink-0 border-t border-stone-200 bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 lg:pb-5">
           <button type="submit" className="btn btn-primary min-h-12 w-full" disabled={disabled}>
             {submitting && <Loader2 size={17} className="animate-spin" aria-hidden="true" />}
-            {submitting ? "送出中" : isWaitlist ? "送出候補登記" : "送出登記"}
+            {submitting ? t("form.submitting") : isWaitlist ? t("form.submitWaitlist") : t("form.submit")}
           </button>
-          <p className="mt-2 text-center text-xs text-stone-500">送出後如需取消，請洽 GRO。</p>
+          <p className="mt-2 text-center text-xs text-stone-500">{t("form.cancelHelp")}</p>
         </div>
       </form>
     </section>

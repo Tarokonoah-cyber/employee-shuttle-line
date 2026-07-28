@@ -4,6 +4,8 @@ import Script from "next/script";
 import { AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BookingPortal } from "@/app/page";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
+import { useLanguage } from "@/components/i18n/language-provider";
 import {
   CLIENT_REQUEST_TIMEOUT_MS,
   fetchWithTimeout,
@@ -11,6 +13,7 @@ import {
   withClientDeadline,
 } from "@/lib/client-http";
 import type { LineProfileView } from "@/lib/line-profile-view";
+import { translateServerError } from "@/lib/i18n";
 import { LineBookingsClient } from "./line-bookings-client";
 
 type LiffApi = {
@@ -36,7 +39,21 @@ function requestedView() {
   return new URLSearchParams(window.location.search).get("view") === "my-bookings" ? "my-bookings" : "booking";
 }
 
+export function LiffNotConfigured() {
+  const { t } = useLanguage();
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-5">
+      <div className="panel max-w-md p-6 text-center">
+        <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
+        <h1 className="text-xl font-bold">{t("liff.notConfigured")}</h1>
+        <p className="mt-2 text-sm text-stone-600">{t("liff.notConfiguredBody")}</p>
+      </div>
+    </main>
+  );
+}
+
 export function LiffEntryClient({ liffId }: { liffId: string }) {
+  const { locale, t } = useLanguage();
   const [state, setState] = useState<EntryState>({ status: "loading" });
   const initialization = useRef<Promise<void> | null>(null);
   const deadline = useRef<number | null>(null);
@@ -45,17 +62,17 @@ export function LiffEntryClient({ liffId }: { liffId: string }) {
     deadline.current = Date.now() + CLIENT_REQUEST_TIMEOUT_MS;
     const timer = window.setTimeout(() => {
       setState((current) => current.status === "loading"
-        ? { status: "error", message: "LINE 身分驗證超過 3 秒，請關閉後從官方帳號重新開啟。" }
+        ? { status: "error", message: t("liff.timeout") }
         : current);
     }, CLIENT_REQUEST_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [t]);
 
   function initialize() {
     if (initialization.current) return;
     initialization.current = (async () => {
       const liff = window.liff;
-      if (!liff) throw new Error("無法載入 LINE LIFF SDK");
+      if (!liff) throw new Error(t("liff.sdkFailed"));
       const remainingTime = () => Math.max(
         1,
         (deadline.current ?? (Date.now() + CLIENT_REQUEST_TIMEOUT_MS)) - Date.now(),
@@ -63,7 +80,7 @@ export function LiffEntryClient({ liffId }: { liffId: string }) {
       await withClientDeadline(
         liff.init({ liffId }),
         remainingTime(),
-        "LINE 初始化超過 3 秒，請關閉後從官方帳號重新開啟。",
+        t("liff.initTimeout"),
       );
 
       // LINE restores LIFF URL query parameters during init, so read the view only after init resolves.
@@ -72,20 +89,20 @@ export function LiffEntryClient({ liffId }: { liffId: string }) {
         setState({ status: "external" });
         return;
       }
-      if (!liff.isLoggedIn()) throw new Error("LINE 尚未登入，請關閉後從官方帳號重新開啟");
+      if (!liff.isLoggedIn()) throw new Error(t("liff.notLoggedIn"));
       const idToken = liff.getIDToken();
-      if (!idToken) throw new Error("無法取得 LINE 身分，請確認 LIFF 已勾選 openid scope");
+      if (!idToken) throw new Error(t("liff.noIdentity"));
 
       const response = await fetchWithTimeout("/api/liff/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
       }, remainingTime());
-      const body = await readJsonResponse<{ profile?: LineProfileView; error?: string }>(response, "LINE 身分驗證失敗");
-      if (!response.ok || !body.profile) throw new Error(body.error ?? "LINE 身分驗證失敗，請重新從官方帳號開啟");
+      const body = await readJsonResponse<{ profile?: LineProfileView; error?: string }>(response, t("liff.verifyFailed"));
+      if (!response.ok || !body.profile) throw new Error(translateServerError(locale, body.error, "liff.verifyRetry"));
       setState({ status: "ready", profile: body.profile, view });
     })().catch((error) => {
-      setState({ status: "error", message: error instanceof Error ? error.message : "LINE 身分驗證失敗，請重新從官方帳號開啟" });
+      setState({ status: "error", message: error instanceof Error ? error.message : t("liff.verifyRetry") });
     });
   }
 
@@ -101,15 +118,16 @@ export function LiffEntryClient({ liffId }: { liffId: string }) {
         src="https://static.line-scdn.net/liff/edge/2/sdk.js"
         strategy="afterInteractive"
         onReady={initialize}
-        onError={() => setState({ status: "error", message: "無法載入 LINE LIFF SDK，請檢查網路後重試" })}
+        onError={() => setState({ status: "error", message: t("liff.sdkRetry") })}
       />
       <section className="panel w-full max-w-md p-6 text-center" aria-live="polite">
+        <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
         {state.status === "loading" ? (
-          <><Loader2 className="mx-auto animate-spin text-primary" size={32} aria-hidden="true" /><h1 className="mt-4 text-xl font-bold">正在辨識 LINE 身分</h1><p className="mt-2 text-sm text-stone-600">請稍候，不要關閉此頁面。</p></>
+          <><Loader2 className="mx-auto animate-spin text-primary" size={32} aria-hidden="true" /><h1 className="mt-4 text-xl font-bold">{t("liff.identifying")}</h1><p className="mt-2 text-sm text-stone-600">{t("liff.wait")}</p></>
         ) : state.status === "external" ? (
-          <><ShieldCheck className="mx-auto text-primary" size={32} aria-hidden="true" /><h1 className="mt-4 text-xl font-bold">請從 LINE 官方帳號開啟</h1><p className="mt-2 text-sm leading-6 text-stone-600">這個入口只允許 LINE App 內的 LIFF 頁面使用，請回到「太魯閣員工服務台」重新點選。</p></>
+          <><ShieldCheck className="mx-auto text-primary" size={32} aria-hidden="true" /><h1 className="mt-4 text-xl font-bold">{t("booking.openFromLineTitle")}</h1><p className="mt-2 text-sm leading-6 text-stone-600">{t("liff.externalBody")}</p></>
         ) : (
-          <><AlertCircle className="mx-auto text-orange-700" size={32} aria-hidden="true" /><h1 className="mt-4 text-xl font-bold">LINE 身分驗證失敗</h1><p className="mt-2 text-sm leading-6 text-stone-600">{state.message}</p></>
+          <><AlertCircle className="mx-auto text-orange-700" size={32} aria-hidden="true" /><h1 className="mt-4 text-xl font-bold">{t("liff.verifyFailed")}</h1><p className="mt-2 text-sm leading-6 text-stone-600">{state.message}</p></>
         )}
       </section>
     </main>

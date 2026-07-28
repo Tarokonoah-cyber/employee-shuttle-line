@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import type { ManagedBookingView } from "@/lib/booking-management";
 import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import { saveBookingToken } from "@/lib/saved-bookings";
+import { statusTranslationKey, translateServerError, type TranslationKey } from "@/lib/i18n";
 import { SuccessReceipt } from "./success-receipt";
 
 type BookingResponse = {
@@ -11,31 +14,31 @@ type BookingResponse = {
   error?: string;
 };
 
-function statusLabel(booking: ManagedBookingView) {
+type Translate = (key: TranslationKey, values?: Record<string, string | number>) => string;
+
+function statusLabel(booking: ManagedBookingView, t: Translate) {
   if (booking.status === "waitlist") {
-    return booking.waitlistPosition ? `候補中（第 ${booking.waitlistPosition} 位）` : "候補中";
+    return booking.waitlistPosition
+      ? `${t("status.waitlist")} (${t("success.position", { position: booking.waitlistPosition })})`
+      : t("status.waitlist");
   }
-  return {
-    confirmed: "已確認",
-    promoted: "已由候補遞補",
-    cancelled: "已取消",
-    schedule_cancelled: "班次已取消",
-  }[booking.status];
+  return t(statusTranslationKey(booking.status));
 }
 
-function lineText(booking: ManagedBookingView, managementUrl: string) {
+function lineText(booking: ManagedBookingView, managementUrl: string, t: Translate) {
   return [
-    "【員工車報名狀態】",
-    `員工：${booking.displayName}`,
-    `日期：${booking.serviceDate}`,
-    `班次：${booking.departureTime} ${booking.routeName}`,
-    `上車點：${booking.pickupPoint}`,
-    `狀態：${statusLabel(booking)}`,
-    `管理報名：${managementUrl}`,
+    t("success.lineTitle"),
+    t("success.lineEmployee", { value: booking.displayName }),
+    t("success.lineDate", { value: booking.serviceDate }),
+    t("success.lineSchedule", { value: `${booking.departureTime} ${booking.routeName}` }),
+    t("success.linePickup", { value: booking.pickupPoint }),
+    t("success.lineStatus", { value: statusLabel(booking, t) }),
+    t("success.lineManage", { value: managementUrl }),
   ].join("\n");
 }
 
 export function BookingSuccessClient({ token }: { token: string }) {
+  const { locale, t } = useLanguage();
   const [data, setData] = useState<BookingResponse | null>(null);
   const [error, setError] = useState("");
 
@@ -43,8 +46,8 @@ export function BookingSuccessClient({ token }: { token: string }) {
     const controller = new AbortController();
     fetchWithTimeout(`/api/bookings/manage/${encodeURIComponent(token)}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
-        const body = await readJsonResponse<BookingResponse>(response, "無法讀取報名結果");
-        if (!response.ok) throw new Error(body.error ?? "無法讀取報名結果");
+        const body = await readJsonResponse<BookingResponse>(response, t("success.loadFailed"));
+        if (!response.ok) throw new Error(translateServerError(locale, body.error, "success.loadFailed"));
         setData(body);
         try {
           saveBookingToken(window.localStorage, token);
@@ -54,22 +57,25 @@ export function BookingSuccessClient({ token }: { token: string }) {
       })
       .catch((requestError) => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-        setError(requestError instanceof Error ? requestError.message : "無法讀取報名結果");
+        setError(requestError instanceof Error ? requestError.message : t("success.loadFailed"));
       });
     return () => controller.abort();
-  }, [token]);
+  }, [locale, t, token]);
 
   if (error) {
     return (
       <div className="mx-auto max-w-md px-5 py-16 text-center">
-        <h1 className="text-xl font-bold">無法顯示報名結果</h1>
+        <div className="mb-8 flex justify-end">
+          <LanguageSwitcher />
+        </div>
+        <h1 className="text-xl font-bold">{t("success.displayFailed")}</h1>
         <p className="mt-2 text-sm leading-6 text-stone-600">{error}</p>
       </div>
     );
   }
 
   if (!data) {
-    return <div className="skeleton mx-auto h-[34rem] w-full max-w-md sm:rounded-[8px]" aria-label="正在讀取報名結果" />;
+    return <div className="skeleton mx-auto h-[34rem] w-full max-w-md sm:rounded-[8px]" aria-label={t("success.loadingAria")} />;
   }
 
   const managementUrl = `${window.location.origin}/booking/manage/${encodeURIComponent(token)}`;
@@ -84,7 +90,7 @@ export function BookingSuccessClient({ token }: { token: string }) {
       pickupPoint={data.booking.pickupPoint}
       waitlistPosition={data.booking.waitlistPosition}
       managementUrl={managementUrl}
-      lineText={lineText(data.booking, managementUrl)}
+      lineText={lineText(data.booking, managementUrl, t)}
     />
   );
 }

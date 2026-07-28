@@ -44,12 +44,12 @@ const icons: Record<string, ComponentType<{ size?: number }>> = {
   cancellation_closed: Clock3,
 };
 
-export function StatusBadge({ value, className }: { value: string; className?: string }) {
+export function StatusBadge({ value, className, label }: { value: string; className?: string; label?: string }) {
   const Icon = icons[value];
   return (
     <span className={clsx("inline-flex items-center gap-1 rounded-[5px] border px-2 py-0.5 text-xs font-semibold", colors[value] ?? colors.closed, className)}>
       {Icon && <Icon size={13} />}
-      {labels[value] ?? value}
+      {label ?? labels[value] ?? value}
     </span>
   );
 }

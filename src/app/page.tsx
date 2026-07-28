@@ -11,14 +11,18 @@ import { EmptyScheduleState } from "@/components/booking/empty-schedule-state";
 import { LoadingScheduleSkeleton } from "@/components/booking/loading-schedule-skeleton";
 import { MobilePageHeader } from "@/components/booking/mobile-page-header";
 import { ShuttleCard } from "@/components/booking/shuttle-card";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
+import { useLanguage } from "@/components/i18n/language-provider";
 import type { Schedule } from "@/components/booking/types";
 import { addDaysToDateInput, tomorrowDateInput } from "@/lib/dates";
 import { fetchWithTimeout, readJsonResponse } from "@/lib/client-http";
 import type { LineProfileView } from "@/lib/line-profile-view";
+import { translateServerError } from "@/lib/i18n";
 import Link from "next/link";
 
 export function BookingPortal({ profile = null }: { profile?: LineProfileView | null }) {
   const router = useRouter();
+  const { locale, t } = useLanguage();
   const [date, setDate] = useState(tomorrowDateInput());
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selected, setSelected] = useState<Schedule | null>(null);
@@ -39,13 +43,13 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
 
       try {
         const response = await fetchWithTimeout(`/api/schedules?date=${date}`, { signal: controller.signal });
-        const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, "讀取車班失敗");
-        if (!response.ok) throw new Error(data.error ?? "讀取車班失敗");
+        const data = await readJsonResponse<{ schedules: Schedule[]; error?: string }>(response, t("schedule.loadFailed"));
+        if (!response.ok) throw new Error(translateServerError(locale, data.error, "schedule.loadFailed"));
         setSchedules(data.schedules);
         setSelected((current) => data.schedules.find((schedule: Schedule) => schedule.id === current?.id) ?? null);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setScheduleError(error instanceof Error ? error.message : "讀取車班失敗");
+        setScheduleError(error instanceof Error ? error.message : t("schedule.loadFailed"));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -53,7 +57,7 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
 
     loadSchedules();
     return () => controller.abort();
-  }, [date, reloadKey]);
+  }, [date, locale, reloadKey, t]);
 
   function changeDate(nextDate: string) {
     if (!nextDate) return;
@@ -92,12 +96,12 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
       const data = await readJsonResponse<{
         successUrl?: string;
         error?: string;
-      }>(response, "登記失敗");
-      if (!response.ok) throw new Error(data.error ?? "登記失敗");
-      if (!data.successUrl) throw new Error("登記完成，但無法開啟報名結果");
+      }>(response, t("booking.createFailed"));
+      if (!response.ok) throw new Error(translateServerError(locale, data.error, "booking.createFailed"));
+      if (!data.successUrl) throw new Error(t("booking.resultUnavailable"));
       router.push(new URL(data.successUrl).pathname);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "登記失敗，請稍後再試");
+      setFormError(error instanceof Error ? error.message : t("booking.createFailedRetry"));
     } finally {
       setSubmitting(false);
     }
@@ -118,10 +122,10 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
 
           <div className="mb-3 mt-5 flex items-end justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-emerald-800">步驟 1</p>
-              <h2 className="mt-0.5 text-lg font-bold">選擇車班</h2>
+              <p className="text-xs font-semibold text-emerald-800">{t("schedule.step")}</p>
+              <h2 className="mt-0.5 text-lg font-bold">{t("schedule.choose")}</h2>
             </div>
-            {!loading && !scheduleError && <p className="text-sm text-stone-500">共 {schedules.length} 班</p>}
+            {!loading && !scheduleError && <p className="text-sm text-stone-500">{t("schedule.total", { count: schedules.length })}</p>}
           </div>
 
           {loading && <LoadingScheduleSkeleton />}
@@ -131,7 +135,7 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
               <AlertCircle size={25} className="mx-auto text-red-600" aria-hidden="true" />
               <p className="mt-2 text-sm font-semibold text-red-800">{scheduleError}</p>
               <button type="button" className="btn btn-secondary mt-4" onClick={() => setReloadKey((value) => value + 1)}>
-                <RefreshCw size={16} aria-hidden="true" />重新整理
+                <RefreshCw size={16} aria-hidden="true" />{t("common.refresh")}
               </button>
             </div>
           )}
@@ -176,7 +180,7 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[1px] lg:hidden" />
           <Dialog.Content className="sheet-enter fixed inset-x-0 bottom-0 z-50 outline-none lg:hidden" aria-describedby={undefined}>
-            <Dialog.Title className="sr-only">完成員工車登記</Dialog.Title>
+            <Dialog.Title className="sr-only">{t("form.dialogTitle")}</Dialog.Title>
             <BookingFormPanel
               mode="mobile"
               schedule={selected}
@@ -194,16 +198,18 @@ export function BookingPortal({ profile = null }: { profile?: LineProfileView | 
 }
 
 export default function Home() {
+  const { t } = useLanguage();
   const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim();
   if (!liffId) return <BookingPortal />;
 
   return (
     <main className="grid min-h-screen place-items-center bg-background px-5 py-12">
       <section className="panel w-full max-w-md p-6 text-center">
+        <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
         <AlertCircle className="mx-auto text-primary" size={32} aria-hidden="true" />
-        <h1 className="mt-4 text-xl font-bold">請從 LINE 官方帳號開啟</h1>
-        <p className="mt-2 text-sm leading-6 text-stone-600">員工車登記需要驗證 LINE 身分，請回到「太魯閣員工服務台」點選員工車登記。</p>
-        <Link className="btn btn-primary mt-5" href={`https://liff.line.me/${encodeURIComponent(liffId)}`}>開啟 LINE 員工車登記</Link>
+        <h1 className="mt-4 text-xl font-bold">{t("booking.openFromLineTitle")}</h1>
+        <p className="mt-2 text-sm leading-6 text-stone-600">{t("booking.openFromLineBody")}</p>
+        <Link className="btn btn-primary mt-5" href={`https://liff.line.me/${encodeURIComponent(liffId)}`}>{t("booking.openFromLineButton")}</Link>
       </section>
     </main>
   );

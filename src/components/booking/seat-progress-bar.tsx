@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { useLanguage } from "@/components/i18n/language-provider";
 import type { EmployeeScheduleState } from "./types";
 
 type SeatProgressBarProps = {
@@ -16,13 +17,14 @@ const barColors: Record<EmployeeScheduleState, string> = {
 };
 
 export function SeatProgressBar({ confirmed, capacity, state }: SeatProgressBarProps) {
+  const { t } = useLanguage();
   const percentage = capacity > 0 ? Math.min((confirmed / capacity) * 100, 100) : 0;
 
   return (
     <div
       className="h-1 overflow-hidden rounded-full bg-stone-200"
       role="progressbar"
-      aria-label="正取名額使用狀況"
+      aria-label={t("schedule.capacityAria")}
       aria-valuemin={0}
       aria-valuemax={capacity}
       aria-valuenow={Math.min(confirmed, capacity)}

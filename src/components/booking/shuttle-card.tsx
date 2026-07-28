@@ -1,7 +1,9 @@
 import { clsx } from "clsx";
 import { Check, Clock3, MapPin } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { useLanguage } from "@/components/i18n/language-provider";
 import { taipeiDateTimeShort } from "@/lib/dates";
+import { statusTranslationKey } from "@/lib/i18n";
 import { SeatProgressBar } from "./seat-progress-bar";
 import { canRegisterSchedule, getEmployeeScheduleState, type Schedule } from "./types";
 
@@ -12,6 +14,7 @@ type ShuttleCardProps = {
 };
 
 export function ShuttleCard({ schedule, selected, onSelect }: ShuttleCardProps) {
+  const { t } = useLanguage();
   const state = getEmployeeScheduleState(schedule);
   const enabled = canRegisterSchedule(schedule);
 
@@ -39,7 +42,7 @@ export function ShuttleCard({ schedule, selected, onSelect }: ShuttleCardProps) 
           <span className="font-mono text-2xl font-bold text-stone-950">{schedule.departureTime}</span>
           <span className="truncate text-base font-semibold text-stone-800">{schedule.routeName}</span>
         </div>
-        <StatusBadge value={state} className="shrink-0" />
+        <StatusBadge value={state} label={t(statusTranslationKey(state))} className="shrink-0" />
       </div>
 
       <p className="mt-1.5 flex items-center gap-1.5 text-sm text-stone-600">
@@ -48,22 +51,22 @@ export function ShuttleCard({ schedule, selected, onSelect }: ShuttleCardProps) 
       </p>
       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-stone-500">
         <Clock3 size={14} aria-hidden="true" />
-        <span>報名／取消截止 {taipeiDateTimeShort(schedule.registrationDeadline)}</span>
+        <span>{t("schedule.deadline", { time: taipeiDateTimeShort(schedule.registrationDeadline) })}</span>
       </p>
 
       <div className="mt-3 grid grid-cols-3 gap-2 border-t border-stone-100 pt-3 text-sm">
         <div>
-          <span className="block text-xs text-stone-500">正取</span>
+          <span className="block text-xs text-stone-500">{t("schedule.confirmed")}</span>
           <strong className="font-mono text-stone-900">{schedule.confirmedCount} / {schedule.capacity}</strong>
         </div>
         <div>
-          <span className="block text-xs text-stone-500">剩餘名額</span>
+          <span className="block text-xs text-stone-500">{t("schedule.remaining")}</span>
           <strong className={clsx("font-mono", state === "near-full" ? "text-amber-700" : "text-stone-900")}>
             {schedule.remainingCount}
           </strong>
         </div>
         <div>
-          <span className="block text-xs text-stone-500">候補人數</span>
+          <span className="block text-xs text-stone-500">{t("schedule.waitlistCount")}</span>
           <strong className="font-mono text-stone-900">{schedule.waitlistCount}</strong>
         </div>
       </div>

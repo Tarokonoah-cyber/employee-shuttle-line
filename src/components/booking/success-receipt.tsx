@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Check, CheckCircle2, Clock3, Copy, Link2, MapPin, MessageSquareText } from "lucide-react";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
+import { useLanguage } from "@/components/i18n/language-provider";
 import { StatusBadge } from "@/components/status-badge";
+import { intlLocale, statusTranslationKey, type AppLocale } from "@/lib/i18n";
 
 type SuccessReceiptProps = {
   status: string;
@@ -17,9 +20,9 @@ type SuccessReceiptProps = {
   lineText?: string;
 };
 
-function displayServiceDate(value: string) {
+function displayServiceDate(value: string, locale: AppLocale) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "—";
-  return new Intl.DateTimeFormat("zh-TW", {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -29,6 +32,7 @@ function displayServiceDate(value: string) {
 }
 
 export function SuccessReceipt({ status, bookingCode, date, departureTime, routeName, pickupPoint, waitlistPosition, managementUrl, lineText }: SuccessReceiptProps) {
+  const { locale, t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -96,22 +100,23 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
   return (
     <section className="receipt-enter mx-auto w-full max-w-md overflow-hidden bg-white sm:rounded-[8px] sm:border sm:border-stone-200">
       <div className="px-5 pb-5 pt-7 text-center">
+        <div className="mb-4 flex justify-end"><LanguageSwitcher /></div>
         <div className={`mx-auto grid h-12 w-12 place-items-center rounded-full ${isWaitlist ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-800"}`}>
           {isWaitlist ? <Clock3 size={25} aria-hidden="true" /> : <CheckCircle2 size={25} aria-hidden="true" />}
         </div>
-        <h1 className="mt-3 text-2xl font-bold text-stone-950">{isWaitlist ? "已加入候補" : "正取成功"}</h1>
-        <p className="mt-1 text-sm text-stone-600">登記結果已完成，請保留預約代碼。</p>
+        <h1 className="mt-3 text-2xl font-bold text-stone-950">{isWaitlist ? t("success.waitlistTitle") : t("success.confirmedTitle")}</h1>
+        <p className="mt-1 text-sm text-stone-600">{t("success.summary")}</p>
       </div>
 
       <div className="border-y border-stone-200 bg-stone-50 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-stone-500">預約代碼</p>
+            <p className="text-xs text-stone-500">{t("success.bookingCode")}</p>
             <input
               ref={bookingCodeRef}
               value={bookingCode || "—"}
               readOnly
-              aria-label="預約代碼"
+              aria-label={t("success.bookingCode")}
               className="mt-1 w-full bg-transparent font-mono text-2xl font-bold text-emerald-900"
             />
           </div>
@@ -123,7 +128,7 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
             aria-live="polite"
           >
             {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-            {copied ? "已複製" : copyFailed ? "已選取" : "複製"}
+            {copied ? t("common.copied") : copyFailed ? t("common.selected") : t("common.copy")}
           </button>
         </div>
       </div>
@@ -131,10 +136,10 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
       <div className="px-5 py-5">
         <div className="flex items-center justify-between gap-3 border-b border-stone-100 pb-3">
           <div>
-            <p className="text-xs text-stone-500">日期</p>
-            <p className="mt-0.5 font-semibold text-stone-900">{displayServiceDate(date)}</p>
+            <p className="text-xs text-stone-500">{t("success.date")}</p>
+            <p className="mt-0.5 font-semibold text-stone-900">{displayServiceDate(date, locale)}</p>
           </div>
-          <StatusBadge value={status} />
+          <StatusBadge value={status} label={t(statusTranslationKey(status))} />
         </div>
         <div className="flex items-baseline gap-3 border-b border-stone-100 py-4">
           <span className="font-mono text-3xl font-bold text-stone-950">{departureTime || "—"}</span>
@@ -142,8 +147,8 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
         </div>
         {isWaitlist && waitlistPosition && (
           <div className="border-b border-stone-100 py-3">
-            <p className="text-xs text-stone-500">目前候補順位</p>
-            <p className="mt-0.5 font-semibold text-amber-800">第 {waitlistPosition} 位</p>
+            <p className="text-xs text-stone-500">{t("success.waitlistPosition")}</p>
+            <p className="mt-0.5 font-semibold text-amber-800">{t("success.position", { position: waitlistPosition })}</p>
           </div>
         )}
         <div className="flex items-center gap-2 py-4 text-sm text-stone-700">
@@ -152,19 +157,19 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
         </div>
 
         <div className="rounded-[7px] bg-stone-100 px-4 py-3 text-sm leading-6 text-stone-700">
-          <p className="font-semibold text-stone-900">乘車提醒</p>
-          <p>請準時抵達上車點。取消或調整班次請洽 GRO。</p>
+          <p className="font-semibold text-stone-900">{t("success.rideReminder")}</p>
+          <p>{t("success.rideReminderBody")}</p>
         </div>
 
         {managementUrl && (
           <div className="mt-5 border-t border-stone-200 pt-5">
-            <h2 className="font-bold">管理我的報名</h2>
-            <p className="mt-1 text-sm text-stone-600">請保留此連結，可隨時查看候補狀態或取消報名。</p>
-            <Link href={managementUrl} className="btn btn-primary mt-4 min-h-12 w-full">查看／管理我的報名</Link>
+            <h2 className="font-bold">{t("success.manageTitle")}</h2>
+            <p className="mt-1 text-sm text-stone-600">{t("success.manageBody")}</p>
+            <Link href={managementUrl} className="btn btn-primary mt-4 min-h-12 w-full">{t("success.manageButton")}</Link>
             <div className="mt-3 flex gap-2">
-              <input className="field min-w-0 flex-1 text-xs" value={managementUrl} readOnly aria-label="管理連結" />
+              <input className="field min-w-0 flex-1 text-xs" value={managementUrl} readOnly aria-label={t("success.managementLink")} />
               <button type="button" className="btn btn-secondary shrink-0" onClick={() => copyText(managementUrl, () => setLinkCopied(true))}>
-                <Link2 size={16} aria-hidden="true" />{linkCopied ? "已複製" : "複製連結"}
+                <Link2 size={16} aria-hidden="true" />{linkCopied ? t("common.copied") : t("success.copyLink")}
               </button>
             </div>
           </div>
@@ -173,16 +178,16 @@ export function SuccessReceipt({ status, bookingCode, date, departureTime, route
         {lineText && (
           <div className="mt-4 rounded-[7px] border border-stone-200 p-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="flex items-center gap-2 text-sm font-semibold"><MessageSquareText size={16} />LINE 通知文字</p>
+              <p className="flex items-center gap-2 text-sm font-semibold"><MessageSquareText size={16} />{t("success.lineText")}</p>
               <button type="button" className="btn btn-secondary" onClick={() => copyText(lineText, () => setLineCopied(true))}>
-                <Copy size={16} aria-hidden="true" />{lineCopied ? "已複製" : "複製"}
+                <Copy size={16} aria-hidden="true" />{lineCopied ? t("common.copied") : t("common.copy")}
               </button>
             </div>
             <textarea className="mt-3 min-h-36 w-full resize-none bg-transparent text-xs leading-5 text-stone-600 outline-none" value={lineText} readOnly />
           </div>
         )}
 
-        <Link href="/" className="btn btn-secondary mt-4 min-h-12 w-full">返回首頁</Link>
+        <Link href="/" className="btn btn-secondary mt-4 min-h-12 w-full">{t("common.backHome")}</Link>
       </div>
     </section>
   );
