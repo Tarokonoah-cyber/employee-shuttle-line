@@ -36,10 +36,6 @@ function productionUrl(value: string | undefined, label: string) {
   return url;
 }
 
-function childUrl(base: URL, pathname: string) {
-  return new URL(pathname, `${base.origin}/`).toString();
-}
-
 function liffUrl(liffId: string | undefined, view?: "my-bookings") {
   const value = liffId?.trim();
   if (!value || !/^\d+-[A-Za-z0-9]+$/.test(value)) throw new Error("NEXT_PUBLIC_LINE_LIFF_ID 未設定或格式不正確");
@@ -49,33 +45,28 @@ function liffUrl(liffId: string | undefined, view?: "my-bookings") {
 }
 
 export function resolveLineRichMenuUrls(env: Environment) {
-  const base = productionUrl(env.APP_BASE_URL, "APP_BASE_URL");
   return {
     shuttle: productionUrl(liffUrl(env.NEXT_PUBLIC_LINE_LIFF_ID), "LIFF 員工車入口").toString(),
     myShuttle: productionUrl(liffUrl(env.NEXT_PUBLIC_LINE_LIFF_ID, "my-bookings"), "LIFF 我的員工車報名").toString(),
-    help: productionUrl(env.LINE_HELP_URL || childUrl(base, "/line/help"), "LINE_HELP_URL").toString(),
-    admin: productionUrl(env.LINE_ADMIN_URL || childUrl(base, "/admin"), "LINE_ADMIN_URL").toString(),
   };
 }
 
 export function buildLineRichMenu(env: Environment): LineRichMenuPayload {
   const urls = resolveLineRichMenuUrls(env);
   const cellWidth = 1250;
-  const cellHeight = 562;
+  const cellHeight = 843;
 
   const actions: LineRichMenuAction[] = [
     { type: "message", label: "工程／IT 報修", text: "我要報修" },
     { type: "uri", label: "員工車登記", uri: urls.shuttle },
     { type: "message", label: "我的報修", text: "我的報修" },
     { type: "uri", label: "我的員工車報名", uri: urls.myShuttle },
-    { type: "uri", label: "使用說明", uri: urls.help },
-    { type: "uri", label: "後台入口", uri: urls.admin },
   ];
 
   return {
     size: LINE_RICH_MENU_SIZE,
     selected: true,
-    name: "太魯閣員工服務台",
+    name: "太魯閣員工服務台｜四大服務",
     chatBarText: "員工服務台",
     areas: actions.map((action, index) => ({
       bounds: {

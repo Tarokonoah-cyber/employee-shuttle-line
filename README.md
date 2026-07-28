@@ -102,18 +102,16 @@ https://line-repair-vercel.vercel.app/api/line/webhook
 
 在 LINE Developers Console 的 Messaging API 頁面設定上述 Webhook URL、啟用 `Use webhook`，並關閉會和 webhook 重複回覆的 Greeting message／Auto-reply（若現場仍需自動回覆，請先確認不會重複）。不要把 webhook 改指向本 Railway 專案，也不要建立第三個 LINE 官方帳號。
 
-### Rich Menu 六格動作
+### Rich Menu 四格動作
 
-Rich Menu 圖為 `public/line/rich-menu-taroko.png`（2500 × 1686、2 欄 × 3 列），可編輯來源為 `assets/line-rich-menu-taroko.svg`。各格和 API 點擊區座標完全對齊：
+Rich Menu 圖為 `public/line/rich-menu-taroko.png`（2500 × 1686、2 欄 × 2 列），可編輯來源為 `assets/line-rich-menu-taroko.svg`。介面只保留四個最常用的員工功能，各格和 API 點擊區座標完全對齊：
 
 | 位置 | 按鈕 | LINE 動作 | 最終入口 |
 | --- | --- | --- | --- |
 | 左上 | 工程／IT 報修 | Message：`我要報修` | 既有報修 webhook 依 LINE 使用者產生 `/repair?token=...&view=repair` |
 | 右上 | 員工車登記 | URI | `https://liff.line.me/<LIFF_ID>` |
-| 左中 | 我的報修 | Message：`我的報修` | 既有報修 webhook 依 LINE 使用者產生 `/repair?token=...&view=mine` |
-| 右中 | 我的員工車報名 | URI | `https://liff.line.me/<LIFF_ID>?view=my-bookings` |
-| 左下 | 使用說明 | URI | `https://employee-shuttle-line-production.up.railway.app/line/help` |
-| 右下 | 後台入口 | URI | `https://employee-shuttle-line-production.up.railway.app/admin` |
+| 左下 | 我的報修 | Message：`我的報修` | 既有報修 webhook 依 LINE 使用者產生 `/repair?token=...&view=mine` |
+| 右下 | 我的員工車報名 | URI | `https://liff.line.me/<LIFF_ID>?view=my-bookings` |
 
 LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 `{lineToken}` 動態替換。員工車入口必須使用正式 LIFF URL；LIFF SDK 取得 ID token 後，後端呼叫 LINE Login `POST /oauth2/v2.1/verify`，核對 `LINE_LOGIN_CHANNEL_ID` 與 token 有效期，再建立本系統的簽章 session。前端 profile、query string 或自行填入的 `lineUserId` 都不可信任。
 
@@ -144,8 +142,8 @@ LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 
 ### 用 Messaging API 建立 Rich Menu
 
 1. 確認使用的是**現有報修 LINE 官方帳號**的 Messaging API channel access token。
-2. 在本機或受控的部署環境設定 `APP_BASE_URL`、`NEXT_PUBLIC_LINE_LIFF_ID` 與現有官方帳號的 `LINE_CHANNEL_ACCESS_TOKEN`；不要把真實值寫入 `.env.example` 或 commit。
-3. 先執行 dry run，檢查六格動作、圖片大小與 URL：
+2. 在本機或受控的部署環境設定 `NEXT_PUBLIC_LINE_LIFF_ID` 與現有官方帳號的 `LINE_CHANNEL_ACCESS_TOKEN`；不要把真實值寫入 `.env.example` 或 commit。
+3. 先執行 dry run，檢查四格動作、圖片大小與 URL：
 
    ```bash
    npm run line:rich-menu
@@ -157,14 +155,7 @@ LINE Rich Menu 的 URI 是固定網址，不會把 `/?token={lineToken}` 中的 
    npm run line:rich-menu -- --apply
    ```
 
-腳本依序呼叫 LINE 官方的 validate、create、image upload 與 set-default API，且不會輸出 channel access token。若只想用 LINE Official Account Manager 手動建立，請選 2 × 3 格版型、上傳同一 PNG，並依上表設定 Message／URI 動作；不要同時在 Manager 與 Messaging API 維護兩份預設選單，以免優先順序造成誤判。
-
-可選 URI 覆寫（全部必須是完整 HTTPS URL）：
-
-```env
-LINE_HELP_URL=
-LINE_ADMIN_URL=
-```
+腳本依序呼叫 LINE 官方的 validate、create、image upload 與 set-default API，且不會輸出 channel access token。若只想用 LINE Official Account Manager 手動建立，請選 2 × 2 格版型、上傳同一 PNG，並依上表設定 Message／URI 動作；不要同時在 Manager 與 Messaging API 維護兩份預設選單，以免優先順序造成誤判。
 
 員工車兩個入口不可用一般 URI 覆寫，建立工具會強制使用 `NEXT_PUBLIC_LINE_LIFF_ID` 產生的 `liff.line.me` 網址。
 
